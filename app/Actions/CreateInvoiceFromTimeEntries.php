@@ -16,50 +16,55 @@ class CreateInvoiceFromTimeEntries
     {
         $workspace = $user->currentWorkspace;
 
-        $entries = TimeEntry::whereIn('id', $timeEntryIds)
-            ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
-            ->get();
+        $query = TimeEntry::whereIn('id', $timeEntryIds)
+            ->whereHas('project', fn ($q) => $q->where('client_id', $client->id));
+
+        if ($workspace->require_client_approval) {
+            $query->where('client_approved', true);
+        }
+
+        $entries = $query->get();
 
         $number = $this->nextInvoiceNumber($workspace->id);
 
         $invoice = Invoice::create([
             'workspace_id' => $workspace->id,
-            'client_id'    => $client->id,
-            'created_by'   => $user->id,
-            'number'       => $number,
-            'status'       => 'draft',
-            'currency'     => $client->currency ?? $workspace->currency,
-            'tax_rate'     => $taxRate,
-            'issued_at'    => today(),
-            'due_at'       => today()->addDays(30),
+            'client_id' => $client->id,
+            'created_by' => $user->id,
+            'number' => $number,
+            'status' => 'draft',
+            'currency' => $client->currency ?? $workspace->currency,
+            'tax_rate' => $taxRate,
+            'issued_at' => today(),
+            'due_at' => today()->addDays(30),
         ]);
 
         $subtotal = 0;
-        $sort     = 0;
+        $sort = 0;
 
         foreach ($entries as $entry) {
-            $minutes   = $entry->duration_minutes ?? 0;
-            $rate      = $entry->hourly_rate ?? $entry->project->hourly_rate ?? 0;
-            $amount    = (int) round(($minutes / 60) * $rate);
+            $minutes = $entry->duration_minutes ?? 0;
+            $rate = $entry->hourly_rate ?? $entry->project->hourly_rate ?? 0;
+            $amount = (int) round(($minutes / 60) * $rate);
             $subtotal += $amount;
 
             $invoice->lines()->create([
                 'description' => $entry->description ?? $entry->project->name,
-                'quantity'    => $minutes,
-                'unit'        => 'hours',
-                'unit_price'  => $rate,
-                'amount'      => $amount,
-                'sort_order'  => $sort++,
+                'quantity' => $minutes,
+                'unit' => 'hours',
+                'unit_price' => $rate,
+                'amount' => $amount,
+                'sort_order' => $sort++,
             ]);
         }
 
         $taxAmount = (int) round($subtotal * ($taxRate / 100));
-        $total     = $subtotal + $taxAmount;
+        $total = $subtotal + $taxAmount;
 
         $invoice->update([
-            'subtotal'   => $subtotal,
+            'subtotal' => $subtotal,
             'tax_amount' => $taxAmount,
-            'total'      => $total,
+            'total' => $total,
         ]);
 
         $invoice->timeEntries()->attach($entries->pluck('id'));
@@ -69,7 +74,7 @@ class CreateInvoiceFromTimeEntries
 
     private function nextInvoiceNumber(int $workspaceId): string
     {
-        $year  = now()->year;
+        $year = now()->year;
         $count = Invoice::where('workspace_id', $workspaceId)
             ->whereYear('created_at', $year)
             ->count() + 1;
