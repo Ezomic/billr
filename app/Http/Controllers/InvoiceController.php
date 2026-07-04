@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\CreateInvoiceFromTimeEntries;
-use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -44,14 +46,14 @@ class InvoiceController extends Controller
     public function store(Request $request, CreateInvoiceFromTimeEntries $action): RedirectResponse
     {
         $data = $request->validate([
-            'client_id'      => ['required', 'integer', 'exists:clients,id'],
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
             'time_entry_ids' => ['required', 'array', 'min:1'],
             'time_entry_ids.*' => ['integer', 'exists:time_entries,id'],
-            'tax_rate'       => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client    = $workspace->clients()->findOrFail($data['client_id']);
+        $client = $workspace->clients()->findOrFail($data['client_id']);
 
         $invoice = $action->handle(
             user: Auth::user(),
@@ -103,12 +105,12 @@ class InvoiceController extends Controller
         return redirect()->route('invoices.index')->with('success', 'Invoice deleted.');
     }
 
-    public function unbilledEntries(Request $request): \Illuminate\Http\JsonResponse
+    public function unbilledEntries(Request $request): JsonResponse
     {
         $request->validate(['client_id' => ['required', 'integer']]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client    = $workspace->clients()->findOrFail($request->client_id);
+        $client = $workspace->clients()->findOrFail($request->client_id);
 
         $entries = TimeEntry::query()
             ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
@@ -120,6 +122,17 @@ class InvoiceController extends Controller
             ->get();
 
         return response()->json($entries);
+    }
+
+    public function pdf(Invoice $invoice): HttpResponse
+    {
+        $this->authorizeInvoice($invoice);
+
+        $invoice->load('workspace', 'client', 'lines');
+
+        $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $invoice]);
+
+        return $pdf->download(str_replace('/', '-', $invoice->number).'.pdf');
     }
 
     private function authorizeInvoice(Invoice $invoice): void
