@@ -10,9 +10,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'owner_id', 'currency', 'timezone'])]
+#[Fillable(['name', 'slug', 'owner_id', 'currency', 'timezone', 'require_client_approval'])]
 class Workspace extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'require_client_approval' => 'boolean',
+        ];
+    }
+
     /** @return BelongsTo<User, $this> */
     public function owner(): BelongsTo
     {

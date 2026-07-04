@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Client\UpsertClientRequest;
 use App\Models\Client;
+use App\Models\TimeEntry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -23,6 +24,26 @@ class ClientController extends Controller
 
         return Inertia::render('clients/Index', [
             'clients' => $clients,
+        ]);
+    }
+
+    public function show(Client $client): Response
+    {
+        $this->authorizeClient($client);
+
+        $client->load('projects');
+
+        $pendingEntries = TimeEntry::whereHas('project', fn ($q) => $q->where('client_id', $client->id))
+            ->whereNotNull('stopped_at')
+            ->where('billable', true)
+            ->whereDoesntHave('invoices')
+            ->with('project:id,name')
+            ->orderBy('started_at')
+            ->get();
+
+        return Inertia::render('clients/Show', [
+            'client' => $client,
+            'pendingEntries' => $pendingEntries,
         ]);
     }
 
