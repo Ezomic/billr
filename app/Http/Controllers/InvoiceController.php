@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\CreateInvoiceFromTimeEntries;
-use App\Models\Client;
+use App\Mail\InvoiceSentMail;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
+use App\Services\StripeService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,14 +47,14 @@ class InvoiceController extends Controller
     public function store(Request $request, CreateInvoiceFromTimeEntries $action): RedirectResponse
     {
         $data = $request->validate([
-            'client_id'      => ['required', 'integer', 'exists:clients,id'],
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
             'time_entry_ids' => ['required', 'array', 'min:1'],
             'time_entry_ids.*' => ['integer', 'exists:time_entries,id'],
-            'tax_rate'       => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client    = $workspace->clients()->findOrFail($data['client_id']);
+        $client = $workspace->clients()->findOrFail($data['client_id']);
 
         $invoice = $action->handle(
             user: Auth::user(),
@@ -103,12 +106,12 @@ class InvoiceController extends Controller
         return redirect()->route('invoices.index')->with('success', 'Invoice deleted.');
     }
 
-    public function unbilledEntries(Request $request): \Illuminate\Http\JsonResponse
+    public function unbilledEntries(Request $request): JsonResponse
     {
         $request->validate(['client_id' => ['required', 'integer']]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client    = $workspace->clients()->findOrFail($request->client_id);
+        $client = $workspace->clients()->findOrFail($request->client_id);
 
         $entries = TimeEntry::query()
             ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
@@ -120,6 +123,38 @@ class InvoiceController extends Controller
             ->get();
 
         return response()->json($entries);
+    }
+
+    public function send(Invoice $invoice): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'paid', 422, 'Cannot send a paid invoice.');
+        abort_if(empty($invoice->client->email), 422, 'Client has no email address.');
+
+        $invoice->loadMissing('workspace', 'client', 'lines');
+
+        Mail::to($invoice->client->email)->send(new InvoiceSentMail($invoice));
+
+        if ($invoice->status === 'draft') {
+            $invoice->update([
+                'status' => 'sent',
+                'issued_at' => $invoice->issued_at ?? today(),
+            ]);
+        }
+
+        return back()->with('success', 'Invoice emailed to '.$invoice->client->email.'.');
+    }
+
+    public function generatePaymentLink(Invoice $invoice, StripeService $stripe): JsonResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'paid', 422, 'Invoice is already paid.');
+
+        $url = $stripe->createPaymentLink($invoice);
+
+        $invoice->update(['stripe_payment_link' => $url]);
+
+        return response()->json(['url' => $url]);
     }
 
     private function authorizeInvoice(Invoice $invoice): void

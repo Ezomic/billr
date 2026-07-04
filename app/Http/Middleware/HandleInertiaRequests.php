@@ -30,6 +30,9 @@ class HandleInertiaRequests extends Middleware
                     'type' => $user->type,
                 ] : null,
                 'workspace' => $user?->isFreelancer() ? $user->currentWorkspace : null,
+                'workspaces' => $user?->isFreelancer()
+                    ? $user->workspaces()->orderBy('name')->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
+                    : [],
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

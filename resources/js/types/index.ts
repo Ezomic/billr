@@ -1,25 +1,26 @@
 export interface User {
-    id: number
-    name: string
-    email: string
-    type: 'freelancer' | 'client'
+    id: number;
+    name: string;
+    email: string;
+    type: "freelancer" | "client";
 }
 
 export interface Workspace {
-    id: number
-    name: string
-    slug: string
-    currency: string
-    timezone: string
+    id: number;
+    name: string;
+    slug: string;
+    currency: string;
+    timezone: string;
 }
 
 export interface SharedProps {
     auth: {
-        user: User | null
-        workspace: Workspace | null
-    }
+        user: User | null;
+        workspace: Workspace | null;
+        workspaces: Workspace[];
+    };
     flash: {
-        success: string | null
-        error: string | null
-    }
+        success: string | null;
+        error: string | null;
+    };
 }
