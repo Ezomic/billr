@@ -11,16 +11,24 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\Settings\MemberController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\WorkspaceController as SettingsWorkspaceController;
+use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TimeEntryController;
 use App\Http\Controllers\WorkspaceController;
+use App\Models\User;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
 
+// Stripe webhook — exempt from CSRF
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])
+    ->name('stripe.webhook')
+    ->withoutMiddleware([VerifyCsrfToken::class]);
+
 // Dev-only shortcut
 if (app()->isLocal()) {
     Route::get('/dev-login', function () {
-        $user = \App\Models\User::where('email', 'dev@billr.test')->firstOrFail();
+        $user = User::where('email', 'dev@billr.test')->firstOrFail();
         auth()->login($user);
 
         return redirect()->route('dashboard');
@@ -79,6 +87,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::post('/invoices/{invoice}/send', [InvoiceController::class, 'send'])->name('invoices.send');
+        Route::post('/invoices/{invoice}/payment-link', [InvoiceController::class, 'generatePaymentLink'])->name('invoices.payment-link');
         Route::post('/invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])->name('invoices.sent');
         Route::post('/invoices/{invoice}/paid', [InvoiceController::class, 'markPaid'])->name('invoices.paid');
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
@@ -102,6 +111,6 @@ Route::middleware('auth')->group(function () {
     // Client portal
     Route::prefix('portal')->name('portal.')->middleware('can:access-portal')->group(function () {
         Route::get('/dashboard', PortalDashboardController::class)->name('dashboard');
-        Route::get('/invoices/{invoice}', [\App\Http\Controllers\Portal\InvoiceController::class, 'show'])->name('invoices.show');
+        Route::get('/invoices/{invoice}', [App\Http\Controllers\Portal\InvoiceController::class, 'show'])->name('invoices.show');
     });
 });
