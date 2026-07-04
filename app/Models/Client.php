@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['workspace_id', 'name', 'email', 'phone', 'address', 'city', 'postal_code', 'country', 'vat_number', 'currency'])]
+#[Fillable(['workspace_id', 'name', 'email', 'phone', 'address', 'city', 'postal_code', 'country', 'vat_number', 'currency', 'portal_token'])]
 class Client extends Model
 {
     use SoftDeletes;

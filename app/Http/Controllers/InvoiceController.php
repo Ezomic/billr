@@ -8,6 +8,7 @@ use App\Actions\CreateInvoiceFromTimeEntries;
 use App\Mail\InvoiceSentMail;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
+use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -143,6 +144,19 @@ class InvoiceController extends Controller
 
         return back()->with('success', 'Invoice emailed to '.$invoice->client->email.'.');
     }
+
+    public function generatePaymentLink(Invoice $invoice, StripeService $stripe): JsonResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'paid', 422, 'Invoice is already paid.');
+
+        $url = $stripe->createPaymentLink($invoice);
+
+        $invoice->update(['stripe_payment_link' => $url]);
+
+        return response()->json(['url' => $url]);
+    }
+
 
     private function authorizeInvoice(Invoice $invoice): void
     {
