@@ -10,8 +10,9 @@ use App\Http\Controllers\Portal\DashboardController as PortalDashboardController
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\Settings\MemberController;
 use App\Http\Controllers\Settings\ProfileController;
-use App\Http\Controllers\Settings\WorkspaceController;
+use App\Http\Controllers\Settings\WorkspaceController as SettingsWorkspaceController;
 use App\Http\Controllers\TimeEntryController;
+use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -21,6 +22,7 @@ if (app()->isLocal()) {
     Route::get('/dev-login', function () {
         $user = \App\Models\User::where('email', 'dev@billr.test')->firstOrFail();
         auth()->login($user);
+
         return redirect()->route('dashboard');
     })->name('dev-login');
 }
@@ -40,6 +42,12 @@ Route::middleware('guest')->group(function () {
 // Authenticated routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    // Workspace management
+    Route::middleware('can:access-workspace')->group(function () {
+        Route::post('/workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
+        Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch'])->name('workspaces.switch');
+    });
 
     // Freelancer app
     Route::middleware('can:access-workspace')->group(function () {
@@ -82,8 +90,8 @@ Route::middleware('auth')->group(function () {
             Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
             Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-            Route::get('/workspace', [WorkspaceController::class, 'show'])->name('workspace');
-            Route::put('/workspace', [WorkspaceController::class, 'update'])->name('workspace.update');
+            Route::get('/workspace', [SettingsWorkspaceController::class, 'show'])->name('workspace');
+            Route::put('/workspace', [SettingsWorkspaceController::class, 'update'])->name('workspace.update');
 
             Route::get('/members', [MemberController::class, 'show'])->name('members');
             Route::post('/members/invite', [MemberController::class, 'invite'])->name('members.invite');
