@@ -15,7 +15,9 @@ class LoginController extends Controller
 {
     public function show(): Response
     {
-        return Inertia::render('auth/Login');
+        return Inertia::render('auth/Login', [
+            'devLogin' => app()->isLocal(),
+        ]);
     }
 
     public function store(LoginRequest $request): RedirectResponse

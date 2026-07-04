@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -12,6 +13,17 @@ class DashboardController extends Controller
 {
     public function __invoke(): Response
     {
-        return Inertia::render('portal/Dashboard');
+        $user = Auth::user();
+
+        $clientIds = $user->accessibleClients()->pluck('clients.id');
+
+        $invoices = \App\Models\Invoice::whereIn('client_id', $clientIds)
+            ->with('client:id,name')
+            ->orderByDesc('issued_at')
+            ->get();
+
+        return Inertia::render('portal/Dashboard', [
+            'invoices' => $invoices,
+        ]);
     }
 }
