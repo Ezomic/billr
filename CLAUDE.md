@@ -118,13 +118,19 @@ flash.error    — string | null
 - [x] Client portal: invoice list + detail with print
 - [x] Test data seeder (3 clients, 4 projects, 17 time entries, 3 invoices in various states)
 
+## Scheduler
+
+`invoices:mark-overdue` runs daily at 06:00 via `routes/console.php` (`Schedule::command(...)->dailyAt('06:00')`). It bulk-updates `sent` invoices where `due_at < today` to `overdue`.
+
+A launchd agent keeps the scheduler alive locally:
+`~/Library/LaunchAgents/nl.thijssensoftware.billr.scheduler.plist` — uses `schedule:work`, `KeepAlive: true`. Logs to `~/Library/Logs/billr-scheduler.log`.
+
 ## What is NOT built yet (good next steps)
 
 - [ ] PDF generation (e.g. `spatie/browsershot` or `barryvdh/laravel-dompdf`)
 - [ ] Email sending (invite emails, invoice emails to clients)
 - [ ] Dashboard with real stats (total revenue, outstanding invoices, hours this month)
 - [ ] Multi-workspace switching (WorkspaceSwitcher dropdown is stubbed)
-- [ ] Invoice due-date overdue detection (cron job to set status → `overdue`)
 - [ ] Recurring invoices
 - [ ] Client portal: approve timesheets before invoicing
 - [ ] Stripe payment links on invoices
@@ -142,3 +148,11 @@ flash.error    — string | null
 | `resources/js/types/index.ts` | TypeScript interfaces |
 | `resources/css/app.css` | Tailwind v4 + shadcn CSS variables |
 | `components.json` | shadcn-vue config (New York, neutral, CSS vars) |
+
+## Linear
+
+Team: **BILLR** — `47312f00-9ae4-4b4e-8700-56de594c92b5`
+
+Branch format: `feature/billr-{number}-{description}` or `fix/billr-{number}-{description}`
+
+Follow the full workflow in `~/.claude/CLAUDE.md`. See parent context in `~/Projects/billr/CLAUDE.md`.
