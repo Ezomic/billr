@@ -46,22 +46,29 @@ class InvitationController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        /** @var string $name */
+        $name = $request->input('name');
+        /** @var string $password */
+        $password = $request->input('password');
+
         if ($invitation->workspace_id) {
             $user = app(AcceptWorkspaceInvitation::class)->handle(
                 invitation: $invitation,
-                name: $request->validated('name'),
-                password: $request->validated('password'),
+                name: $name,
+                password: $password,
             );
             Auth::login($user);
+
             return redirect()->route('dashboard');
         }
 
         $user = app(AcceptClientInvitation::class)->handle(
             invitation: $invitation,
-            name: $request->validated('name'),
-            password: $request->validated('password'),
+            name: $name,
+            password: $password,
         );
         Auth::login($user);
+
         return redirect()->route('portal.dashboard');
     }
 }

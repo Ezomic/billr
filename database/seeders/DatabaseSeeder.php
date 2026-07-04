@@ -21,10 +21,10 @@ class DatabaseSeeder extends Seeder
     {
         // Dev freelancer account
         $user = User::create([
-            'name'     => 'Dev User',
-            'email'    => 'dev@billr.test',
+            'name' => 'Dev User',
+            'email' => 'dev@billr.test',
             'password' => Hash::make('password'),
-            'type'     => 'freelancer',
+            'type' => 'freelancer',
         ]);
 
         $workspace = app(CreateWorkspace::class)->handle($user, 'Dev Studio');
@@ -32,67 +32,67 @@ class DatabaseSeeder extends Seeder
         // Clients
         $acme = Client::create([
             'workspace_id' => $workspace->id,
-            'name'         => 'Acme Corp',
-            'email'        => 'finance@acme.example',
-            'city'         => 'Amsterdam',
-            'country'      => 'NL',
-            'vat_number'   => 'NL123456789B01',
-            'currency'     => 'EUR',
+            'name' => 'Acme Corp',
+            'email' => 'finance@acme.example',
+            'city' => 'Amsterdam',
+            'country' => 'NL',
+            'vat_number' => 'NL123456789B01',
+            'currency' => 'EUR',
         ]);
 
         $globalTech = Client::create([
             'workspace_id' => $workspace->id,
-            'name'         => 'GlobalTech Ltd',
-            'email'        => 'accounts@globaltech.example',
-            'city'         => 'London',
-            'country'      => 'GB',
-            'currency'     => 'GBP',
+            'name' => 'GlobalTech Ltd',
+            'email' => 'accounts@globaltech.example',
+            'city' => 'London',
+            'country' => 'GB',
+            'currency' => 'GBP',
         ]);
 
         $startupCo = Client::create([
             'workspace_id' => $workspace->id,
-            'name'         => 'StartupCo',
-            'email'        => 'hello@startupco.example',
-            'city'         => 'Berlin',
-            'country'      => 'DE',
-            'currency'     => 'EUR',
+            'name' => 'StartupCo',
+            'email' => 'hello@startupco.example',
+            'city' => 'Berlin',
+            'country' => 'DE',
+            'currency' => 'EUR',
         ]);
 
         // Projects
         $acmeWeb = Project::create([
             'workspace_id' => $workspace->id,
-            'client_id'    => $acme->id,
-            'name'         => 'Website Redesign',
-            'type'         => 'hourly',
-            'hourly_rate'  => 9500, // €95/hr
-            'status'       => 'active',
+            'client_id' => $acme->id,
+            'name' => 'Website Redesign',
+            'type' => 'hourly',
+            'hourly_rate' => 9500, // €95/hr
+            'status' => 'active',
         ]);
 
         $acmeMaint = Project::create([
             'workspace_id' => $workspace->id,
-            'client_id'    => $acme->id,
-            'name'         => 'Monthly Maintenance',
-            'type'         => 'fixed',
-            'fixed_price'  => 120000, // €1200/month
-            'status'       => 'active',
+            'client_id' => $acme->id,
+            'name' => 'Monthly Maintenance',
+            'type' => 'fixed',
+            'fixed_price' => 120000, // €1200/month
+            'status' => 'active',
         ]);
 
         $globalApi = Project::create([
             'workspace_id' => $workspace->id,
-            'client_id'    => $globalTech->id,
-            'name'         => 'API Integration',
-            'type'         => 'hourly',
-            'hourly_rate'  => 11000, // £110/hr
-            'status'       => 'active',
+            'client_id' => $globalTech->id,
+            'name' => 'API Integration',
+            'type' => 'hourly',
+            'hourly_rate' => 11000, // £110/hr
+            'status' => 'active',
         ]);
 
         $startupMvp = Project::create([
             'workspace_id' => $workspace->id,
-            'client_id'    => $startupCo->id,
-            'name'         => 'MVP Build',
-            'type'         => 'hourly',
-            'hourly_rate'  => 8500, // €85/hr
-            'status'       => 'active',
+            'client_id' => $startupCo->id,
+            'name' => 'MVP Build',
+            'type' => 'hourly',
+            'hourly_rate' => 8500, // €85/hr
+            'status' => 'active',
         ]);
 
         // Time entries — spread over last 60 days
@@ -123,17 +123,17 @@ class DatabaseSeeder extends Seeder
         $timeEntryModels = [];
         foreach ($entries as [$project, $description, $minutes, $daysAgo]) {
             $start = CarbonImmutable::now()->subDays($daysAgo)->setTime(9, 0);
-            $stop  = $start->addMinutes($minutes);
+            $stop = $start->addMinutes($minutes);
 
             $timeEntryModels[] = TimeEntry::create([
-                'project_id'       => $project->id,
-                'user_id'          => $user->id,
-                'description'      => $description,
-                'started_at'       => $start,
-                'stopped_at'       => $stop,
+                'project_id' => $project->id,
+                'user_id' => $user->id,
+                'description' => $description,
+                'started_at' => $start,
+                'stopped_at' => $stop,
                 'duration_minutes' => $minutes,
-                'hourly_rate'      => $project->hourly_rate,
-                'billable'         => true,
+                'hourly_rate' => $project->hourly_rate,
+                'billable' => true,
             ]);
         }
 
@@ -152,10 +152,10 @@ class DatabaseSeeder extends Seeder
             taxRate: 21,
         );
         $invoice1->update([
-            'status'    => 'paid',
+            'status' => 'paid',
             'issued_at' => now()->subDays(30),
-            'due_at'    => now()->subDays(0),
-            'paid_at'   => now()->subDays(5),
+            'due_at' => now()->subDays(0),
+            'paid_at' => now()->subDays(5),
         ]);
 
         // Invoice 2 — GlobalTech, sent
@@ -170,9 +170,9 @@ class DatabaseSeeder extends Seeder
             taxRate: 0,
         );
         $invoice2->update([
-            'status'    => 'sent',
+            'status' => 'sent',
             'issued_at' => now()->subDays(12),
-            'due_at'    => now()->addDays(18),
+            'due_at' => now()->addDays(18),
         ]);
 
         // Invoice 3 — StartupCo, draft
@@ -189,10 +189,10 @@ class DatabaseSeeder extends Seeder
 
         // Client portal user for Acme
         $clientUser = User::create([
-            'name'     => 'Acme Finance',
-            'email'    => 'portal@acme.example',
+            'name' => 'Acme Finance',
+            'email' => 'portal@acme.example',
             'password' => Hash::make('password'),
-            'type'     => 'client',
+            'type' => 'client',
         ]);
         $acme->portalUsers()->attach($clientUser->id);
     }
