@@ -1,0 +1,11 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "billr",
+            "runtimeExecutable": "/Users/robbinthijssen/Library/Application Support/Herd/config/nvm/versions/node/v22.23.1/bin/npm",
+            "runtimeArgs": ["run", "dev"],
+            "port": 5173
+        }
+    ]
+}
