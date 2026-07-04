@@ -28,7 +28,7 @@ class ProjectController extends Controller
 
         return Inertia::render('projects/Index', [
             'projects' => $projects,
-            'clients'  => $clients,
+            'clients' => $clients,
         ]);
     }
 

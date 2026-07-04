@@ -27,7 +27,7 @@ class WorkspaceController extends Controller
         abort_unless($workspace->owner_id === Auth::id(), 403);
 
         $data = $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255'],
             'currency' => ['required', 'string', 'size:3'],
             'timezone' => ['required', 'string', 'timezone:all'],
         ]);
