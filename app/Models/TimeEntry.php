@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['project_id', 'user_id', 'description', 'started_at', 'stopped_at', 'duration_minutes', 'hourly_rate', 'billable'])]
+#[Fillable(['project_id', 'user_id', 'description', 'started_at', 'stopped_at', 'duration_minutes', 'hourly_rate', 'billable', 'client_approved'])]
 class TimeEntry extends Model
 {
     protected function casts(): array
@@ -18,6 +18,7 @@ class TimeEntry extends Model
             'started_at' => 'datetime',
             'stopped_at' => 'datetime',
             'billable' => 'boolean',
+            'client_approved' => 'boolean',
         ];
     }
 
