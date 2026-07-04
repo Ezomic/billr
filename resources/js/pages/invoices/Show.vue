@@ -5,7 +5,8 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Send, CheckCheck, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Check, CheckCheck, Copy, Link, Send, Trash2 } from 'lucide-vue-next'
+import { ref } from 'vue'
 
 interface InvoiceLine {
     id: number
@@ -29,12 +30,41 @@ interface Invoice {
     issued_at: string | null
     due_at: string | null
     paid_at: string | null
+    stripe_payment_link: string | null
     client: { name: string; email: string | null; address: string | null; city: string | null; country: string | null; vat_number: string | null }
     lines: InvoiceLine[]
     created_by: { name: string }
 }
 
 const props = defineProps<{ invoice: Invoice }>()
+
+const paymentLink = ref<string | null>(props.invoice.stripe_payment_link)
+const generatingLink = ref(false)
+const copied = ref(false)
+
+async function generatePaymentLink() {
+    generatingLink.value = true
+    try {
+        const response = await fetch(route("invoices.payment-link", props.invoice.id), {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": (document.querySelector("meta[name=\"csrf-token\"]") as HTMLMetaElement)?.content ?? "",
+                "Accept": "application/json",
+            },
+        })
+        const data = await response.json()
+        paymentLink.value = data.url
+    } finally {
+        generatingLink.value = false
+    }
+}
+
+async function copyPaymentLink() {
+    if (!paymentLink.value) return
+    await navigator.clipboard.writeText(paymentLink.value)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2000)
+}
 
 function formatMoney(cents: number) {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency: props.invoice.currency }).format(cents / 100)
@@ -84,7 +114,10 @@ function destroy() {
                     <Button v-if="invoice.status !== 'paid'" variant="outline" size="sm" @click="markPaid">
                         <CheckCheck class="size-4" /> Mark paid
                     </Button>
-                    <Button v-if="invoice.status === 'draft'" variant="outline" size="sm" @click="destroy" class="text-destructive hover:text-destructive">
+                    <Button v-if="invoice.status !== 'paid'" variant="outline" size="sm" @click="generatePaymentLink" :disabled="generatingLink">
+                        <Link class="size-4" /> {{ generatingLink ? 'Generating...' : 'Payment link' }}
+                    </Button>
+                                        <Button v-if="invoice.status === 'draft'" variant="outline" size="sm" @click="destroy" class="text-destructive hover:text-destructive">
                         <Trash2 class="size-4" />
                     </Button>
                 </div>
@@ -170,6 +203,14 @@ function destroy() {
 
                 <div v-if="invoice.notes" class="text-sm text-muted-foreground border-t pt-4">
                     {{ invoice.notes }}
+                </div>
+
+                <div v-if="paymentLink" class="border-t pt-4 flex items-center gap-2">
+                    <a :href="paymentLink" target="_blank" rel="noopener" class="text-sm text-primary underline truncate flex-1">{{ paymentLink }}</a>
+                    <Button variant="outline" size="sm" @click="copyPaymentLink">
+                        <Check v-if="copied" class="size-4" />
+                        <Copy v-else class="size-4" />
+                    </Button>
                 </div>
             </div>
         </div>
