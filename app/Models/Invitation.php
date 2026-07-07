@@ -7,7 +7,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 #[Fillable(['workspace_id', 'client_id', 'email', 'role', 'token', 'accepted_at', 'expires_at'])]
 class Invitation extends Model

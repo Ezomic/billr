@@ -29,9 +29,9 @@ class MemberController extends Controller
             ->get(['id', 'email', 'role', 'created_at']);
 
         return Inertia::render('settings/Members', [
-            'members'     => $members,
+            'members' => $members,
             'invitations' => $invitations,
-            'isOwner'     => $workspace->owner_id === Auth::id(),
+            'isOwner' => $workspace->owner_id === Auth::id(),
         ]);
     }
 
@@ -42,15 +42,15 @@ class MemberController extends Controller
 
         $data = $request->validate([
             'email' => ['required', 'email'],
-            'role'  => ['required', 'in:member'],
+            'role' => ['required', 'in:member'],
         ]);
 
         Invitation::create([
             'workspace_id' => $workspace->id,
-            'email'        => $data['email'],
-            'role'         => $data['role'],
-            'token'        => Str::random(64),
-            'expires_at'   => now()->addDays(7),
+            'email' => $data['email'],
+            'role' => $data['role'],
+            'token' => Str::random(64),
+            'expires_at' => now()->addDays(7),
         ]);
 
         return back()->with('success', 'Invitation sent.');
