@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\InvitationController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientPortalController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
@@ -47,6 +48,10 @@ Route::middleware('guest')->group(function () {
     Route::post('/invitations/{token}', [InvitationController::class, 'store'])->name('invitations.accept');
 });
 
+// Client timesheet approval portal — token-based, no login required
+Route::get('/client-portal/{token}', [ClientPortalController::class, 'show'])->name('client-portal.show');
+Route::post('/client-portal/{token}/approve', [ClientPortalController::class, 'approve'])->name('client-portal.approve');
+
 // Authenticated routes
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
@@ -64,8 +69,10 @@ Route::middleware('auth')->group(function () {
         // Clients
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
         Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::get('/clients/{client}', [ClientController::class, 'show'])->name('clients.show');
         Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
         Route::delete('/clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+        Route::post('/clients/{client}/portal-access', [ClientPortalController::class, 'sendAccess'])->name('clients.portal-access');
 
         // Projects
         Route::get('/projects', [ProjectController::class, 'index'])->name('projects.index');
