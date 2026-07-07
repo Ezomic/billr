@@ -164,7 +164,6 @@ class InvoiceController extends Controller
         return response()->json(['url' => $url]);
     }
 
-
     private function authorizeInvoice(Invoice $invoice): void
     {
         abort_unless($invoice->workspace_id === Auth::user()->current_workspace_id, 403);
