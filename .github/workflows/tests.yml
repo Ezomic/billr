@@ -14,7 +14,15 @@ jobs:
           php-version: '8.4'
           extensions: pdo_sqlite
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - run: composer install --no-interaction --prefer-dist
+
+      - run: npm ci
+
+      - run: npm run build
 
       - run: ./vendor/bin/pint --test
 
