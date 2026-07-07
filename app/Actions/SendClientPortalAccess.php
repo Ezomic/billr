@@ -15,7 +15,7 @@ class SendClientPortalAccess
     {
         $token = Str::random(64);
 
-        $client->update(['portal_token' => $token]);
+        $client->forceFill(['portal_token' => $token])->save();
 
         Mail::to($client->email)->send(new ClientPortalAccessMail($client, $token));
     }
