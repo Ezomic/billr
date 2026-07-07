@@ -14,6 +14,8 @@ class DashboardController extends Controller
     {
         $workspace = Auth::user()->currentWorkspace;
 
+        abort_unless($workspace !== null, 403);
+
         $base = $workspace->invoices();
 
         $totalInvoices = (clone $base)->count();
@@ -41,10 +43,10 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => [
-                'totalInvoices'    => $totalInvoices,
+                'totalInvoices' => $totalInvoices,
                 'totalOutstanding' => (int) $totalOutstanding,
-                'paidThisMonth'    => (int) $paidThisMonth,
-                'overdueCount'     => $overdueCount,
+                'paidThisMonth' => (int) $paidThisMonth,
+                'overdueCount' => $overdueCount,
             ],
         ]);
     }
