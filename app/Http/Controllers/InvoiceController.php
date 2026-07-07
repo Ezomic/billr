@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\CreateInvoiceFromTimeEntries;
 use App\Mail\InvoiceSentMail;
+use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
 use App\Services\StripeService;
@@ -54,12 +55,17 @@ class InvoiceController extends Controller
         ]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client = $workspace->clients()->findOrFail($data['client_id']);
+        /** @var Client $client */
+        $client = $workspace->clients()->where('id', $data['client_id'])->firstOrFail();
+
+        /** @var array<int, int> $rawIds */
+        $rawIds = $data['time_entry_ids'];
+        $ids = collect(array_map('intval', $rawIds));
 
         $invoice = $action->handle(
             user: Auth::user(),
             client: $client,
-            timeEntryIds: collect($data['time_entry_ids']),
+            timeEntryIds: $ids,
             taxRate: (float) ($data['tax_rate'] ?? 0),
         );
 
@@ -111,7 +117,8 @@ class InvoiceController extends Controller
         $request->validate(['client_id' => ['required', 'integer']]);
 
         $workspace = Auth::user()->currentWorkspace;
-        $client = $workspace->clients()->findOrFail($request->client_id);
+        /** @var Client $client */
+        $client = $workspace->clients()->where('id', (int) $request->input('client_id'))->firstOrFail();
 
         $entries = TimeEntry::query()
             ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
@@ -156,7 +163,6 @@ class InvoiceController extends Controller
 
         return response()->json(['url' => $url]);
     }
-
 
     private function authorizeInvoice(Invoice $invoice): void
     {

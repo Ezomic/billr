@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,7 +18,7 @@ class DashboardController extends Controller
 
         $clientIds = $user->accessibleClients()->pluck('clients.id');
 
-        $invoices = \App\Models\Invoice::whereIn('client_id', $clientIds)
+        $invoices = Invoice::whereIn('client_id', $clientIds)
             ->with('client:id,name')
             ->orderByDesc('issued_at')
             ->get();

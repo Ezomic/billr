@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TimeEntry\StoreTimeEntryRequest;
+use App\Models\Project;
 use App\Models\TimeEntry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,7 @@ class TimeEntryController extends Controller
 {
     public function index(): Response
     {
-        $user      = Auth::user();
+        $user = Auth::user();
         $workspace = $user->currentWorkspace;
 
         $entries = TimeEntry::query()
@@ -37,28 +38,29 @@ class TimeEntryController extends Controller
             ->first();
 
         return Inertia::render('time/Index', [
-            'entries'  => $entries,
+            'entries' => $entries,
             'projects' => $projects,
-            'running'  => $running,
+            'running' => $running,
         ]);
     }
 
     public function store(StoreTimeEntryRequest $request): RedirectResponse
     {
-        $user      = Auth::user();
+        $user = Auth::user();
         $workspace = $user->currentWorkspace;
 
-        $project = $workspace->projects()->findOrFail($request->validated('project_id'));
+        /** @var Project $project */
+        $project = $workspace->projects()->where('id', (int) $request->validated('project_id'))->firstOrFail();
 
         $data = $request->validated();
 
-        if (isset($data['stopped_at'])) {
-            $start                    = now()->parse($data['started_at']);
-            $stop                     = now()->parse($data['stopped_at']);
+        if (isset($data['stopped_at'], $data['started_at'])) {
+            $start = now()->parse((string) $data['started_at']);
+            $stop = now()->parse((string) $data['stopped_at']);
             $data['duration_minutes'] = (int) $start->diffInMinutes($stop);
         }
 
-        $data['user_id']     = $user->id;
+        $data['user_id'] = $user->id;
         $data['hourly_rate'] = $project->hourly_rate;
 
         TimeEntry::create($data);
@@ -68,7 +70,7 @@ class TimeEntryController extends Controller
 
     public function start(int $projectId): RedirectResponse
     {
-        $user      = Auth::user();
+        $user = Auth::user();
         $workspace = $user->currentWorkspace;
 
         $workspace->projects()->findOrFail($projectId);
@@ -76,10 +78,10 @@ class TimeEntryController extends Controller
         TimeEntry::where('user_id', $user->id)->whereNull('stopped_at')->delete();
 
         TimeEntry::create([
-            'project_id'  => $projectId,
-            'user_id'     => $user->id,
-            'started_at'  => now(),
-            'billable'    => true,
+            'project_id' => $projectId,
+            'user_id' => $user->id,
+            'started_at' => now(),
+            'billable' => true,
             'hourly_rate' => $workspace->projects()->find($projectId)?->hourly_rate,
         ]);
 
@@ -90,11 +92,11 @@ class TimeEntryController extends Controller
     {
         abort_unless($entry->user_id === Auth::id(), 403);
 
-        $stopped  = now();
+        $stopped = now();
         $duration = (int) $entry->started_at->diffInMinutes($stopped);
 
         $entry->update([
-            'stopped_at'       => $stopped,
+            'stopped_at' => $stopped,
             'duration_minutes' => $duration,
         ]);
 
@@ -107,9 +109,9 @@ class TimeEntryController extends Controller
 
         $data = $request->validated();
 
-        if (isset($data['stopped_at'])) {
-            $start                    = now()->parse($data['started_at']);
-            $stop                     = now()->parse($data['stopped_at']);
+        if (isset($data['stopped_at'], $data['started_at'])) {
+            $start = now()->parse((string) $data['started_at']);
+            $stop = now()->parse((string) $data['stopped_at']);
             $data['duration_minutes'] = (int) $start->diffInMinutes($stop);
         }
 

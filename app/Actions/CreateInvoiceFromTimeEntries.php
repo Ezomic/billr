@@ -12,6 +12,7 @@ use Illuminate\Support\Collection;
 
 class CreateInvoiceFromTimeEntries
 {
+    /** @param Collection<int, int> $timeEntryIds */
     public function handle(User $user, Client $client, Collection $timeEntryIds, float $taxRate = 0): Invoice
     {
         $workspace = $user->currentWorkspace;
