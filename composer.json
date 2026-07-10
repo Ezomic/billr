@@ -12,6 +12,7 @@
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "stripe/stripe-php": "^20.3",
+        "thijssensoftware/id-client": "^0.1.0",
         "tightenco/ziggy": "^2.6"
     },
     "require-dev": {
@@ -89,5 +90,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [{
+        "name": "id-client",
+        "type": "vcs",
+        "url": "https://github.com/Ezomic/id-client.git"
+    }]
 }
