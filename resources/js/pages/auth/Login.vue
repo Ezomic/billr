@@ -27,50 +27,62 @@ function submit() {
         <Card>
             <CardHeader>
                 <CardTitle>Sign in</CardTitle>
-                <CardDescription>Enter your email and password to continue</CardDescription>
+                <CardDescription>Continue with Thijssensoftware, or sign in with your email and password</CardDescription>
             </CardHeader>
             <CardContent>
-                <form @submit.prevent="submit" class="space-y-4">
-                    <div class="space-y-1">
-                        <Label for="email">Email</Label>
-                        <Input
-                            id="email"
-                            v-model="form.email"
-                            type="email"
-                            autocomplete="email"
-                            :class="{ 'border-destructive': form.errors.email }"
-                        />
-                        <p v-if="form.errors.email" class="text-destructive text-sm">{{ form.errors.email }}</p>
-                    </div>
-
-                    <div class="space-y-1">
-                        <Label for="password">Password</Label>
-                        <Input
-                            id="password"
-                            v-model="form.password"
-                            type="password"
-                            autocomplete="current-password"
-                            :class="{ 'border-destructive': form.errors.password }"
-                        />
-                        <p v-if="form.errors.password" class="text-destructive text-sm">{{ form.errors.password }}</p>
-                    </div>
-
-                    <Button type="submit" class="w-full" :disabled="form.processing">
-                        Sign in
+                <div class="space-y-4">
+                    <Button as="a" :href="route('sso.redirect')" class="w-full">
+                        Sign in with Thijssensoftware
                     </Button>
 
-                    <p class="text-muted-foreground text-center text-sm">
-                        Don't have an account?
-                        <a :href="route('register')" class="text-foreground underline">Create one</a>
-                    </p>
+                    <div class="flex items-center gap-3 text-muted-foreground text-xs">
+                        <Separator class="flex-1" />
+                        or
+                        <Separator class="flex-1" />
+                    </div>
 
-                    <template v-if="devLogin">
-                        <Separator />
-                        <Button as="a" :href="route('dev-login')" variant="outline" class="w-full">
-                            Dev login
+                    <form @submit.prevent="submit" class="space-y-4">
+                        <div class="space-y-1">
+                            <Label for="email">Email</Label>
+                            <Input
+                                id="email"
+                                v-model="form.email"
+                                type="email"
+                                autocomplete="email"
+                                :class="{ 'border-destructive': form.errors.email }"
+                            />
+                            <p v-if="form.errors.email" class="text-destructive text-sm">{{ form.errors.email }}</p>
+                        </div>
+
+                        <div class="space-y-1">
+                            <Label for="password">Password</Label>
+                            <Input
+                                id="password"
+                                v-model="form.password"
+                                type="password"
+                                autocomplete="current-password"
+                                :class="{ 'border-destructive': form.errors.password }"
+                            />
+                            <p v-if="form.errors.password" class="text-destructive text-sm">{{ form.errors.password }}</p>
+                        </div>
+
+                        <Button type="submit" class="w-full" variant="outline" :disabled="form.processing">
+                            Sign in
                         </Button>
-                    </template>
-                </form>
+
+                        <p class="text-muted-foreground text-center text-sm">
+                            Don't have an account?
+                            <a :href="route('register')" class="text-foreground underline">Create one</a>
+                        </p>
+
+                        <template v-if="devLogin">
+                            <Separator />
+                            <Button as="a" :href="route('dev-login')" variant="outline" class="w-full">
+                                Dev login
+                            </Button>
+                        </template>
+                    </form>
+                </div>
             </CardContent>
         </Card>
     </AuthLayout>
