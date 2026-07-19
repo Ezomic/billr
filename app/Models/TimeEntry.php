@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['project_id', 'user_id', 'description', 'started_at', 'stopped_at', 'duration_minutes', 'hourly_rate', 'billable', 'client_approved'])]
+#[Fillable(['project_id', 'user_id', 'description', 'started_at', 'stopped_at', 'duration_minutes', 'hourly_rate', 'billable', 'client_approved', 'external_source', 'external_ref'])]
 class TimeEntry extends Model
 {
     protected function casts(): array
