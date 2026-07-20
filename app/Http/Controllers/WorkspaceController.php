@@ -9,10 +9,17 @@ use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\Workspace\StoreWorkspaceRequest;
 use App\Models\Workspace;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class WorkspaceController extends Controller
 {
     use InteractsWithCurrentUser;
+
+    public function create(): Response
+    {
+        return Inertia::render('workspaces/Create');
+    }
 
     public function store(StoreWorkspaceRequest $request, CreateWorkspace $action): RedirectResponse
     {
