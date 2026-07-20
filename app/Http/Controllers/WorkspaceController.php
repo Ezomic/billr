@@ -5,23 +5,25 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\CreateWorkspace;
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\Workspace\StoreWorkspaceRequest;
 use App\Models\Workspace;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
 
 class WorkspaceController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function store(StoreWorkspaceRequest $request, CreateWorkspace $action): RedirectResponse
     {
-        $action->handle(Auth::user(), $request->validated('name'));
+        $action->handle($this->currentUser(), $request->validated('name'));
 
         return redirect()->route('dashboard')->with('success', 'Workspace created.');
     }
 
     public function switch(Workspace $workspace): RedirectResponse
     {
-        $user = Auth::user();
+        $user = $this->currentUser();
 
         abort_unless(
             $user->workspaces()->where('workspace_id', $workspace->id)->exists(),

@@ -15,7 +15,7 @@ class CreateInvoiceFromTimeEntries
     /** @param Collection<int, int> $timeEntryIds */
     public function handle(User $user, Client $client, Collection $timeEntryIds, float $taxRate = 0): Invoice
     {
-        $workspace = $user->currentWorkspace;
+        $workspace = $user->requireCurrentWorkspace();
 
         $query = TimeEntry::whereIn('id', $timeEntryIds)
             ->whereHas('project', fn ($q) => $q->where('client_id', $client->id));
@@ -50,7 +50,7 @@ class CreateInvoiceFromTimeEntries
             $subtotal += $amount;
 
             $invoice->lines()->create([
-                'description' => $entry->description ?? $entry->project->name,
+                'description' => $entry->description ?? $entry->project->name ?? '',
                 'quantity' => $minutes,
                 'unit' => 'hours',
                 'unit_price' => $rate,

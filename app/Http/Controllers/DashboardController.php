@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
+use App\Concerns\InteractsWithCurrentUser;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function __invoke(): Response
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->currentWorkspace;
 
         abort_unless($workspace !== null, 403);
 

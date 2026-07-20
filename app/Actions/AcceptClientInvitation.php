@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use InvalidArgumentException;
 
 class AcceptClientInvitation
 {
@@ -22,6 +23,10 @@ class AcceptClientInvitation
         );
 
         $client = $invitation->client;
+
+        if ($client === null) {
+            throw new InvalidArgumentException("Invitation {$invitation->id} has no client.");
+        }
 
         if (! $client->portalUsers()->where('user_id', $user->id)->exists()) {
             $client->portalUsers()->attach($user->id);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -13,6 +14,8 @@ use Inertia\Response;
 
 class LoginController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function show(): Response
     {
         return Inertia::render('auth/Login', [
@@ -28,7 +31,7 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        $user = Auth::user();
+        $user = $this->currentUser();
 
         if ($user->isClient()) {
             return redirect()->route('portal.dashboard');
