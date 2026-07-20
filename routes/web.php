@@ -15,6 +15,7 @@ use App\Http\Controllers\Settings\WorkspaceController as SettingsWorkspaceContro
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TimeEntryController;
 use App\Http\Controllers\WorkspaceController;
+use App\Http\Middleware\EnsureWorkspace;
 use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
@@ -56,14 +57,17 @@ Route::post('/client-portal/{token}/approve', [ClientPortalController::class, 'a
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
-    // Workspace management
+    // Workspace management. Deliberately outside EnsureWorkspace: these are the
+    // only routes that can resolve a missing workspace, so gating them on having
+    // one would strand the user.
     Route::middleware('can:access-workspace')->group(function () {
+        Route::get('/workspaces/create', [WorkspaceController::class, 'create'])->name('workspaces.create');
         Route::post('/workspaces', [WorkspaceController::class, 'store'])->name('workspaces.store');
         Route::post('/workspaces/{workspace}/switch', [WorkspaceController::class, 'switch'])->name('workspaces.switch');
     });
 
     // Freelancer app
-    Route::middleware('can:access-workspace')->group(function () {
+    Route::middleware(['can:access-workspace', EnsureWorkspace::class])->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
         // Clients
