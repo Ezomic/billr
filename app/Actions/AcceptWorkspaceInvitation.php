@@ -7,6 +7,7 @@ namespace App\Actions;
 use App\Models\Invitation;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use InvalidArgumentException;
 
 class AcceptWorkspaceInvitation
 {
@@ -22,6 +23,10 @@ class AcceptWorkspaceInvitation
         );
 
         $workspace = $invitation->workspace;
+
+        if ($workspace === null) {
+            throw new InvalidArgumentException("Invitation {$invitation->id} has no workspace.");
+        }
 
         if (! $workspace->members()->where('user_id', $user->id)->exists()) {
             $workspace->members()->attach($user->id, ['role' => $invitation->role]);

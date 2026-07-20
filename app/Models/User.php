@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Exceptions\MissingWorkspaceException;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -44,6 +45,24 @@ class User extends Authenticatable
     public function currentWorkspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class, 'current_workspace_id');
+    }
+
+    /**
+     * The workspace this user is acting in, for the freelancer routes that
+     * cannot render without one. current_workspace_id is nullable and the
+     * access-workspace gate only checks isFreelancer(), so a freelancer who
+     * has not accepted an invitation yet can still reach those routes; this
+     * fails with a named exception rather than reading a property on null.
+     */
+    public function requireCurrentWorkspace(): Workspace
+    {
+        $workspace = $this->currentWorkspace;
+
+        if ($workspace === null) {
+            throw new MissingWorkspaceException($this);
+        }
+
+        return $workspace;
     }
 
     /** @return BelongsToMany<Workspace, $this> */

@@ -4,19 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\Client\UpsertClientRequest;
 use App\Models\Client;
 use App\Models\TimeEntry;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ClientController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function index(): Response
     {
-        $clients = Auth::user()->currentWorkspace->clients()
+        $clients = $this->currentUser()->requireCurrentWorkspace()->clients()
             ->withCount('projects')
             ->withCount('invoices')
             ->orderBy('name')
@@ -49,7 +51,7 @@ class ClientController extends Controller
 
     public function store(UpsertClientRequest $request): RedirectResponse
     {
-        Auth::user()->currentWorkspace->clients()->create($request->validated());
+        $this->currentUser()->requireCurrentWorkspace()->clients()->create($request->validated());
 
         return back()->with('success', 'Client created.');
     }
@@ -74,6 +76,6 @@ class ClientController extends Controller
 
     private function authorizeClient(Client $client): void
     {
-        abort_unless($client->workspace_id === Auth::user()->current_workspace_id, 403);
+        abort_unless($client->workspace_id === $this->currentUser()->current_workspace_id, 403);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Settings;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class ProfileController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function show(): Response
     {
         return Inertia::render('settings/Profile');
@@ -26,7 +29,7 @@ class ProfileController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.Auth::id()],
         ]);
 
-        Auth::user()->update($data);
+        $this->currentUser()->update($data);
 
         return back()->with('success', 'Profile updated.');
     }
@@ -38,7 +41,7 @@ class ProfileController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        Auth::user()->update(['password' => Hash::make($data['password'])]);
+        $this->currentUser()->update(['password' => Hash::make($data['password'])]);
 
         return back()->with('success', 'Password updated.');
     }

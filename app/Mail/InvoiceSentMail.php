@@ -24,7 +24,7 @@ class InvoiceSentMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Invoice '.$this->invoice->number.' from '.$this->invoice->workspace->name,
+            subject: 'Invoice '.$this->invoice->number.' from '.($this->invoice->workspace->name ?? ''),
         );
     }
 

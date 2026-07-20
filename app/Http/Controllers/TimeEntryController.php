@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\TimeEntry\StoreTimeEntryRequest;
 use App\Models\Project;
 use App\Models\TimeEntry;
@@ -14,10 +15,12 @@ use Inertia\Response;
 
 class TimeEntryController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function index(): Response
     {
-        $user = Auth::user();
-        $workspace = $user->currentWorkspace;
+        $user = $this->currentUser();
+        $workspace = $user->requireCurrentWorkspace();
 
         $entries = TimeEntry::query()
             ->where('user_id', $user->id)
@@ -46,8 +49,8 @@ class TimeEntryController extends Controller
 
     public function store(StoreTimeEntryRequest $request): RedirectResponse
     {
-        $user = Auth::user();
-        $workspace = $user->currentWorkspace;
+        $user = $this->currentUser();
+        $workspace = $user->requireCurrentWorkspace();
 
         /** @var Project $project */
         $project = $workspace->projects()->where('id', (int) $request->validated('project_id'))->firstOrFail();
@@ -70,8 +73,8 @@ class TimeEntryController extends Controller
 
     public function start(int $projectId): RedirectResponse
     {
-        $user = Auth::user();
-        $workspace = $user->currentWorkspace;
+        $user = $this->currentUser();
+        $workspace = $user->requireCurrentWorkspace();
 
         $workspace->projects()->findOrFail($projectId);
 

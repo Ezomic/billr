@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\SendClientPortalAccess;
+use App\Concerns\InteractsWithCurrentUser;
 use App\Models\Client;
 use App\Models\TimeEntry;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class ClientPortalController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function sendAccess(Client $client): RedirectResponse
     {
-        abort_unless($client->workspace_id === Auth::user()->current_workspace_id, 403);
+        abort_unless($client->workspace_id === $this->currentUser()->current_workspace_id, 403);
         abort_unless($client->email !== null, 422, 'Client has no email address.');
 
         app(SendClientPortalAccess::class)->handle($client);

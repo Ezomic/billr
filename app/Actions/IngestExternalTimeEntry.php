@@ -24,11 +24,11 @@ class IngestExternalTimeEntry
         ?string $clientName,
         ?string $projectName,
     ): TimeEntry {
-        $workspace = $user->currentWorkspace;
+        $workspace = $user->requireCurrentWorkspace();
 
         $project = $billrProjectId !== null
             ? Project::where('workspace_id', $workspace->id)->findOrFail($billrProjectId)
-            : $this->resolveProject($workspace->id, $clientName, $projectName);
+            : $this->resolveProject($workspace->id, $clientName ?? '', $projectName ?? '');
 
         $startedAt = CarbonImmutable::parse($spentOn)->startOfDay();
 

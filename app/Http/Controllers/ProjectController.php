@@ -4,18 +4,20 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\Project\UpsertProjectRequest;
 use App\Models\Project;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProjectController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function index(): Response
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
 
         $projects = $workspace->projects()
             ->with('client:id,name')
@@ -34,7 +36,7 @@ class ProjectController extends Controller
 
     public function store(UpsertProjectRequest $request): RedirectResponse
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
 
         abort_unless(
             $workspace->clients()->where('id', $request->validated('client_id'))->exists(),
@@ -66,6 +68,6 @@ class ProjectController extends Controller
 
     private function authorizeProject(Project $project): void
     {
-        abort_unless($project->workspace_id === Auth::user()->current_workspace_id, 403);
+        abort_unless($project->workspace_id === $this->currentUser()->current_workspace_id, 403);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Settings;
 
+use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Controllers\Controller;
 use App\Models\Invitation;
 use App\Models\User;
@@ -16,9 +17,11 @@ use Inertia\Response;
 
 class MemberController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function show(): Response
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
 
         $members = $workspace->members()
             ->get(['users.id', 'users.name', 'users.email', 'workspace_user.role']);
@@ -37,7 +40,7 @@ class MemberController extends Controller
 
     public function invite(Request $request): RedirectResponse
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
         abort_unless($workspace->owner_id === Auth::id(), 403);
 
         $data = $request->validate([
@@ -58,7 +61,7 @@ class MemberController extends Controller
 
     public function remove(User $user): RedirectResponse
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
         abort_unless($workspace->owner_id === Auth::id(), 403);
         abort_if($user->id === Auth::id(), 422, 'Cannot remove yourself.');
 

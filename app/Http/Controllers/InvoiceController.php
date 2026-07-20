@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Actions\CreateInvoiceFromTimeEntries;
+use App\Concerns\InteractsWithCurrentUser;
 use App\Mail\InvoiceSentMail;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -13,16 +14,17 @@ use App\Services\StripeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class InvoiceController extends Controller
 {
+    use InteractsWithCurrentUser;
+
     public function index(): Response
     {
-        $invoices = Auth::user()->currentWorkspace->invoices()
+        $invoices = $this->currentUser()->requireCurrentWorkspace()->invoices()
             ->with('client:id,name')
             ->orderByDesc('created_at')
             ->get();
@@ -34,7 +36,7 @@ class InvoiceController extends Controller
 
     public function create(): Response
     {
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
 
         $clients = $workspace->clients()
             ->orderBy('name')
@@ -54,7 +56,7 @@ class InvoiceController extends Controller
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
         /** @var Client $client */
         $client = $workspace->clients()->where('id', $data['client_id'])->firstOrFail();
 
@@ -63,7 +65,7 @@ class InvoiceController extends Controller
         $ids = collect(array_map('intval', $rawIds));
 
         $invoice = $action->handle(
-            user: Auth::user(),
+            user: $this->currentUser(),
             client: $client,
             timeEntryIds: $ids,
             taxRate: (float) ($data['tax_rate'] ?? 0),
@@ -116,7 +118,7 @@ class InvoiceController extends Controller
     {
         $request->validate(['client_id' => ['required', 'integer']]);
 
-        $workspace = Auth::user()->currentWorkspace;
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
         /** @var Client $client */
         $client = $workspace->clients()->where('id', (int) $request->input('client_id'))->firstOrFail();
 
@@ -136,11 +138,13 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'paid', 422, 'Cannot send a paid invoice.');
-        abort_if(empty($invoice->client->email), 422, 'Client has no email address.');
+        $clientEmail = $invoice->client?->email;
+
+        abort_if(empty($clientEmail), 422, 'Client has no email address.');
 
         $invoice->loadMissing('workspace', 'client', 'lines');
 
-        Mail::to($invoice->client->email)->send(new InvoiceSentMail($invoice));
+        Mail::to($clientEmail)->send(new InvoiceSentMail($invoice));
 
         if ($invoice->status === 'draft') {
             $invoice->update([
@@ -149,7 +153,7 @@ class InvoiceController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Invoice emailed to '.$invoice->client->email.'.');
+        return back()->with('success', 'Invoice emailed to '.$clientEmail.'.');
     }
 
     public function generatePaymentLink(Invoice $invoice, StripeService $stripe): JsonResponse
@@ -166,6 +170,6 @@ class InvoiceController extends Controller
 
     private function authorizeInvoice(Invoice $invoice): void
     {
-        abort_unless($invoice->workspace_id === Auth::user()->current_workspace_id, 403);
+        abort_unless($invoice->workspace_id === $this->currentUser()->current_workspace_id, 403);
     }
 }
