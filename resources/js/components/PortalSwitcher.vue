@@ -18,7 +18,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { PortalApp } from '@/types'
+import type { PortalApp, PortalCategory } from '@/types'
 
 const page = usePage()
 
@@ -26,6 +26,23 @@ const open = ref(false)
 
 const apps = computed<PortalApp[]>(
     () => (page.props.portalApps as PortalApp[] | undefined) ?? [],
+)
+
+const categories = computed<PortalCategory[]>(
+    () => (page.props.portalCategories as PortalCategory[] | undefined) ?? [],
+)
+
+// The main apps render label-less first, then each category as its own
+// labeled section. Empty sections are dropped so no stray heading shows.
+const sections = computed(() =>
+    [
+        { key: '__main__', label: null as string | null, apps: apps.value },
+        ...categories.value.map((group) => ({
+            key: group.category,
+            label: group.category,
+            apps: group.apps,
+        })),
+    ].filter((section) => section.apps.length > 0),
 )
 </script>
 
@@ -60,39 +77,52 @@ const apps = computed<PortalApp[]>(
             </DialogHeader>
 
             <p
-                v-if="apps.length === 0"
+                v-if="sections.length === 0"
                 class="text-muted-foreground py-8 text-center text-sm"
             >
                 No other apps available.
             </p>
 
-            <div v-else class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <component
-                    :is="app.current ? 'div' : 'a'"
-                    v-for="app in apps"
-                    :key="app.slug"
-                    :href="app.current ? undefined : app.launch_url"
-                    :aria-current="app.current ? 'page' : undefined"
-                    class="border-border flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors"
-                    :class="
-                        app.current
-                            ? 'bg-muted/50 cursor-default'
-                            : 'hover:border-primary/40 hover:bg-accent/60'
-                    "
-                >
-                    <AppIcon
-                        :launch-url="app.launch_url"
-                        :initials="app.initials"
-                        :accent="app.accent"
-                    />
-                    <span class="text-sm font-medium">{{ app.name }}</span>
-                    <span
-                        v-if="app.current"
-                        class="text-muted-foreground text-[11px]"
+            <div v-else class="space-y-4">
+                <div v-for="section in sections" :key="section.key">
+                    <p
+                        v-if="section.label"
+                        class="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase"
                     >
-                        Current
-                    </span>
-                </component>
+                        {{ section.label }}
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        <component
+                            :is="app.current ? 'div' : 'a'"
+                            v-for="app in section.apps"
+                            :key="app.slug"
+                            :href="app.current ? undefined : app.launch_url"
+                            :aria-current="app.current ? 'page' : undefined"
+                            class="border-border flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors"
+                            :class="
+                                app.current
+                                    ? 'bg-muted/50 cursor-default'
+                                    : 'hover:border-primary/40 hover:bg-accent/60'
+                            "
+                        >
+                            <AppIcon
+                                :launch-url="app.launch_url"
+                                :initials="app.initials"
+                                :accent="app.accent"
+                            />
+                            <span class="text-sm font-medium">{{
+                                app.name
+                            }}</span>
+                            <span
+                                v-if="app.current"
+                                class="text-muted-foreground text-[11px]"
+                            >
+                                Current
+                            </span>
+                        </component>
+                    </div>
+                </div>
             </div>
         </DialogContent>
     </Dialog>

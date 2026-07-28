@@ -22,6 +22,11 @@ export interface PortalApp {
     current: boolean;
 }
 
+export interface PortalCategory {
+    category: string;
+    apps: PortalApp[];
+}
+
 export interface SharedProps {
     auth: {
         user: User | null;
@@ -33,4 +38,5 @@ export interface SharedProps {
         error: string | null;
     };
     portalApps: PortalApp[];
+    portalCategories: PortalCategory[];
 }
