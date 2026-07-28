@@ -40,4 +40,12 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'thijssensoftware' => [
+        'base_url' => env('THIJSSENSOFTWARE_ID_URL', 'https://id.thijssensoftware.nl'),
+        'client_id' => env('THIJSSENSOFTWARE_ID_CLIENT_ID'),
+        'client_secret' => env('THIJSSENSOFTWARE_ID_CLIENT_SECRET'),
+        'slug' => env('THIJSSENSOFTWARE_ID_APP_SLUG', 'billr'),
+        'portal_cache_ttl' => (int) env('THIJSSENSOFTWARE_ID_PORTAL_TTL', 300),
+    ],
+
 ];

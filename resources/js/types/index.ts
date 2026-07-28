@@ -13,6 +13,15 @@ export interface Workspace {
     timezone: string;
 }
 
+export interface PortalApp {
+    slug: string;
+    name: string;
+    initials: string;
+    accent: string | null;
+    launch_url: string;
+    current: boolean;
+}
+
 export interface SharedProps {
     auth: {
         user: User | null;
@@ -23,4 +32,5 @@ export interface SharedProps {
         success: string | null;
         error: string | null;
     };
+    portalApps: PortalApp[];
 }
