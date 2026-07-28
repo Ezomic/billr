@@ -4,6 +4,7 @@ import { usePage } from '@inertiajs/vue3'
 import { navItems } from '@/config/nav'
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher.vue'
 import UserMenu from '@/components/UserMenu.vue'
+import PortalSwitcher from '@/components/PortalSwitcher.vue'
 import { Separator } from '@/components/ui/separator'
 
 const page = usePage()
@@ -20,8 +21,11 @@ function isActive(routeName: string): boolean {
 <template>
     <aside class="bg-sidebar text-sidebar-foreground flex h-full w-60 shrink-0 flex-col border-r">
         <!-- Workspace switcher -->
-        <div class="p-2">
-            <WorkspaceSwitcher />
+        <div class="flex items-center gap-2 p-2">
+            <div class="min-w-0 flex-1">
+                <WorkspaceSwitcher />
+            </div>
+            <PortalSwitcher />
         </div>
 
         <Separator />
