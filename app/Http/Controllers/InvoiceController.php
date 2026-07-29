@@ -11,6 +11,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
 use App\Services\StripeService;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,7 +50,7 @@ class InvoiceController extends Controller
 
     public function store(Request $request, CreateInvoiceFromTimeEntries $action): RedirectResponse
     {
-        $data = $request->validate([
+        $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
             'time_entry_ids' => ['required', 'array', 'min:1'],
             'time_entry_ids.*' => ['integer', 'exists:time_entries,id'],
@@ -58,17 +59,15 @@ class InvoiceController extends Controller
 
         $workspace = $this->currentUser()->requireCurrentWorkspace();
         /** @var Client $client */
-        $client = $workspace->clients()->where('id', $data['client_id'])->firstOrFail();
+        $client = $workspace->clients()->where('id', $request->integer('client_id'))->firstOrFail();
 
-        /** @var array<int, int> $rawIds */
-        $rawIds = $data['time_entry_ids'];
-        $ids = collect(array_map('intval', $rawIds));
+        $ids = $request->collect('time_entry_ids')->map(fn (mixed $id): int => is_numeric($id) ? (int) $id : 0);
 
         $invoice = $action->handle(
             user: $this->currentUser(),
             client: $client,
             timeEntryIds: $ids,
-            taxRate: (float) ($data['tax_rate'] ?? 0),
+            taxRate: $request->float('tax_rate'),
         );
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created.');
@@ -120,12 +119,12 @@ class InvoiceController extends Controller
 
         $workspace = $this->currentUser()->requireCurrentWorkspace();
         /** @var Client $client */
-        $client = $workspace->clients()->where('id', (int) $request->input('client_id'))->firstOrFail();
+        $client = $workspace->clients()->where('id', $request->integer('client_id'))->firstOrFail();
 
         $entries = TimeEntry::query()
             ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
             ->whereNotNull('stopped_at')
-            ->whereNotExists(fn ($q) => $q->from('invoice_time_entries')->whereColumn('time_entry_id', 'time_entries.id'))
+            ->whereNotExists(fn (QueryBuilder $q) => $q->from('invoice_time_entries')->whereColumn('time_entry_id', 'time_entries.id'))
             ->where('billable', true)
             ->with('project:id,name')
             ->orderByDesc('started_at')

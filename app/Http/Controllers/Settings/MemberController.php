@@ -43,15 +43,15 @@ class MemberController extends Controller
         $workspace = $this->currentUser()->requireCurrentWorkspace();
         abort_unless($workspace->owner_id === Auth::id(), 403);
 
-        $data = $request->validate([
+        $request->validate([
             'email' => ['required', 'email'],
             'role' => ['required', 'in:member'],
         ]);
 
         Invitation::create([
             'workspace_id' => $workspace->id,
-            'email' => $data['email'],
-            'role' => $data['role'],
+            'email' => $request->string('email')->toString(),
+            'role' => $request->string('role')->toString(),
             'token' => Str::random(64),
             'expires_at' => now()->addDays(7),
         ]);

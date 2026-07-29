@@ -32,7 +32,7 @@ class StripeWebhookController extends Controller
 
             $invoiceId = $session->metadata->invoice_id ?? null;
 
-            if ($invoiceId !== null) {
+            if (is_numeric($invoiceId)) {
                 $invoice = Invoice::find((int) $invoiceId);
 
                 if ($invoice !== null && $invoice->status !== 'paid') {

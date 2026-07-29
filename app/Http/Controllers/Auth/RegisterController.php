@@ -22,10 +22,10 @@ class RegisterController extends Controller
     public function store(RegisterRequest $request, RegisterFreelancer $action): RedirectResponse
     {
         $user = $action->handle(
-            name: $request->validated('name'),
-            email: $request->validated('email'),
-            password: $request->validated('password'),
-            workspaceName: $request->validated('workspace_name'),
+            name: $request->string('name')->toString(),
+            email: $request->string('email')->toString(),
+            password: $request->string('password')->toString(),
+            workspaceName: $request->string('workspace_name')->toString(),
         );
 
         Auth::login($user);

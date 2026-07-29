@@ -8,6 +8,7 @@ use App\Actions\SendClientPortalAccess;
 use App\Concerns\InteractsWithCurrentUser;
 use App\Models\Client;
 use App\Models\TimeEntry;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -31,7 +32,7 @@ class ClientPortalController extends Controller
 
         $projects = $client->projects()
             ->with([
-                'timeEntries' => fn ($q) => $q
+                'timeEntries' => fn (Relation $q) => $q
                     ->whereNotNull('stopped_at')
                     ->where('billable', true)
                     ->whereDoesntHave('invoices')
@@ -52,7 +53,7 @@ class ClientPortalController extends Controller
         $client = Client::where('portal_token', $token)->firstOrFail();
 
         $entryIds = $client->projects()
-            ->with(['timeEntries' => fn ($q) => $q
+            ->with(['timeEntries' => fn (Relation $q) => $q
                 ->whereNotNull('stopped_at')
                 ->where('billable', true)
                 ->whereDoesntHave('invoices'),

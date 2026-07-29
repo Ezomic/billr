@@ -16,17 +16,21 @@ class TimeEntryController extends Controller
 
     public function store(IngestTimeEntryRequest $request, IngestExternalTimeEntry $action): JsonResponse
     {
+        $description = $request->input('description');
+        $clientName = $request->input('client_name');
+        $projectName = $request->input('project_name');
+
         $entry = $action->handle(
             user: $this->currentUser(),
             externalSource: $request->string('external_source')->toString(),
             externalRef: $request->string('external_ref')->toString(),
             minutes: $request->integer('minutes'),
             spentOn: $request->string('spent_on')->toString(),
-            description: $request->input('description'),
+            description: is_string($description) ? $description : null,
             billable: $request->boolean('billable', true),
             billrProjectId: $request->integer('billr_project_id') ?: null,
-            clientName: $request->input('client_name'),
-            projectName: $request->input('project_name'),
+            clientName: is_string($clientName) ? $clientName : null,
+            projectName: is_string($projectName) ? $projectName : null,
         );
 
         return response()->json([

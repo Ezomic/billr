@@ -23,7 +23,7 @@ class WorkspaceController extends Controller
 
     public function store(StoreWorkspaceRequest $request, CreateWorkspace $action): RedirectResponse
     {
-        $action->handle($this->currentUser(), $request->validated('name'));
+        $action->handle($this->currentUser(), $request->string('name')->toString());
 
         return redirect()->route('dashboard')->with('success', 'Workspace created.');
     }

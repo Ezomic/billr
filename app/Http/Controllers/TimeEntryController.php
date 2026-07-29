@@ -53,13 +53,13 @@ class TimeEntryController extends Controller
         $workspace = $user->requireCurrentWorkspace();
 
         /** @var Project $project */
-        $project = $workspace->projects()->where('id', (int) $request->validated('project_id'))->firstOrFail();
+        $project = $workspace->projects()->where('id', $request->integer('project_id'))->firstOrFail();
 
         $data = $request->validated();
 
         if (isset($data['stopped_at'], $data['started_at'])) {
-            $start = now()->parse((string) $data['started_at']);
-            $stop = now()->parse((string) $data['stopped_at']);
+            $start = now()->parse($request->string('started_at')->toString());
+            $stop = now()->parse($request->string('stopped_at')->toString());
             $data['duration_minutes'] = (int) $start->diffInMinutes($stop);
         }
 
@@ -113,8 +113,8 @@ class TimeEntryController extends Controller
         $data = $request->validated();
 
         if (isset($data['stopped_at'], $data['started_at'])) {
-            $start = now()->parse((string) $data['started_at']);
-            $stop = now()->parse((string) $data['stopped_at']);
+            $start = now()->parse($request->string('started_at')->toString());
+            $stop = now()->parse($request->string('stopped_at')->toString());
             $data['duration_minutes'] = (int) $start->diffInMinutes($stop);
         }
 

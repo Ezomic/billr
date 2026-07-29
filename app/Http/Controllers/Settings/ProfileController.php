@@ -24,24 +24,27 @@ class ProfileController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $data = $request->validate([
+        $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.Auth::id()],
         ]);
 
-        $this->currentUser()->update($data);
+        $this->currentUser()->update([
+            'name' => $request->string('name')->toString(),
+            'email' => $request->string('email')->toString(),
+        ]);
 
         return back()->with('success', 'Profile updated.');
     }
 
     public function updatePassword(Request $request): RedirectResponse
     {
-        $data = $request->validate([
+        $request->validate([
             'current_password' => ['required', 'current_password'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
-        $this->currentUser()->update(['password' => Hash::make($data['password'])]);
+        $this->currentUser()->update(['password' => Hash::make($request->string('password')->toString())]);
 
         return back()->with('success', 'Password updated.');
     }
