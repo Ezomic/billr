@@ -15,7 +15,8 @@ class StripeService
 
     public function __construct()
     {
-        $this->client = new StripeClient((string) config('services.stripe.key'));
+        $key = config('services.stripe.key');
+        $this->client = new StripeClient(is_string($key) ? $key : '');
     }
 
     public function createPaymentLink(Invoice $invoice): string
@@ -42,10 +43,12 @@ class StripeService
 
     public function constructWebhookEvent(string $payload, string $sig): Event
     {
+        $secret = config('services.stripe.webhook_secret');
+
         return Webhook::constructEvent(
             payload: $payload,
             sigHeader: $sig,
-            secret: (string) config('services.stripe.webhook_secret'),
+            secret: is_string($secret) ? $secret : '',
         );
     }
 }
