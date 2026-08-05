@@ -173,6 +173,63 @@ it('cannot delete a sent invoice', function () {
         ->assertStatus(422);
 });
 
+it('serves unbilled entries over http without being swallowed by the show route', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->getJson(route('invoices.unbilled-entries', ['client_id' => $this->client->id]))
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.id', $entry->id);
+});
+
+it('leaves already billed and non billable entries out of the unbilled list', function () {
+    $billed = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHours(3),
+        'stopped_at' => now()->subHours(2),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => false,
+    ]);
+
+    $invoice = Invoice::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'created_by' => $this->user->id,
+        'number' => 'INV-2026-0500',
+        'status' => 'draft',
+        'currency' => 'USD',
+        'subtotal' => 0,
+        'tax_amount' => 0,
+        'total' => 0,
+        'tax_rate' => 0,
+    ]);
+    $invoice->timeEntries()->attach($billed->id);
+
+    $this->getJson(route('invoices.unbilled-entries', ['client_id' => $this->client->id]))
+        ->assertOk()
+        ->assertJsonCount(0);
+});
+
 it('cannot access another workspace invoice', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([
