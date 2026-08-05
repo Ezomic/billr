@@ -9,11 +9,20 @@ use App\Models\Invoice;
 use App\Models\TimeEntry;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class CreateInvoiceFromTimeEntries
 {
     /** @param Collection<int, int> $timeEntryIds */
     public function handle(User $user, Client $client, Collection $timeEntryIds, float $taxRate = 0): Invoice
+    {
+        // Number allocation and insert have to be atomic, or two concurrent
+        // creations in the same workspace read the same sequence.
+        return DB::transaction(fn (): Invoice => $this->build($user, $client, $timeEntryIds, $taxRate));
+    }
+
+    /** @param Collection<int, int> $timeEntryIds */
+    private function build(User $user, Client $client, Collection $timeEntryIds, float $taxRate): Invoice
     {
         $workspace = $user->requireCurrentWorkspace();
 
@@ -73,13 +82,23 @@ class CreateInvoiceFromTimeEntries
         return $invoice;
     }
 
+    // Counting rows would skip soft-deleted invoices while their numbers stay in
+    // the unique index, so the sequence is read off the highest number instead.
     private function nextInvoiceNumber(int $workspaceId): string
     {
-        $year = now()->year;
-        $count = Invoice::where('workspace_id', $workspaceId)
-            ->whereYear('created_at', $year)
-            ->count() + 1;
+        $prefix = sprintf('INV-%d-', now()->year);
 
-        return sprintf('INV-%d-%04d', $year, $count);
+        $last = Invoice::withTrashed()
+            ->where('workspace_id', $workspaceId)
+            ->where('number', 'like', $prefix.'%')
+            ->orderByRaw('LENGTH(number) desc, number desc')
+            ->lockForUpdate()
+            ->value('number');
+
+        $sequence = is_string($last)
+            ? ((int) substr($last, strlen($prefix))) + 1
+            : 1;
+
+        return $prefix.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 }
