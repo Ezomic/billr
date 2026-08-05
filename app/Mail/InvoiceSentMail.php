@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Mail;
 
 use App\Models\Invoice;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\InvoicePdfRenderer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -41,14 +41,13 @@ class InvoiceSentMail extends Mailable
     /** @return array<int, Attachment> */
     public function attachments(): array
     {
-        $this->invoice->loadMissing('workspace', 'client', 'lines');
-
-        $pdf = Pdf::loadView('pdf.invoice', ['invoice' => $this->invoice]);
+        $renderer = app(InvoicePdfRenderer::class);
+        $pdf = $renderer->render($this->invoice);
 
         return [
             Attachment::fromData(
                 fn () => $pdf->output(),
-                $this->invoice->number.'.pdf',
+                $renderer->filename($this->invoice),
             )->withMime('application/pdf'),
         ];
     }
