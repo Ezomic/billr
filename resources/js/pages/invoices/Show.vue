@@ -5,8 +5,8 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Check, CheckCheck, Copy, Download, Link, Send, Trash2 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { ArrowLeft, Ban, Check, CheckCheck, Copy, Download, Link, Send, Trash2 } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
 
 interface InvoiceLine {
     id: number
@@ -37,6 +37,8 @@ interface Invoice {
 }
 
 const props = defineProps<{ invoice: Invoice }>()
+
+const isSettled = computed(() => props.invoice.status === 'paid' || props.invoice.status === 'void')
 
 const paymentLink = ref<string | null>(props.invoice.stripe_payment_link)
 const generatingLink = ref(false)
@@ -92,6 +94,11 @@ function markPaid() {
     useForm({}).post(route('invoices.paid', props.invoice.id))
 }
 
+function markVoid() {
+    if (!confirm(`Void invoice ${props.invoice.number}? Its time entries become billable again.`)) return
+    useForm({}).post(route('invoices.void', props.invoice.id))
+}
+
 function destroy() {
     if (!confirm(`Delete invoice ${props.invoice.number}?`)) return
     useForm({}).delete(route('invoices.destroy', props.invoice.id))
@@ -114,11 +121,14 @@ function destroy() {
                     <Button v-if="invoice.status === 'draft'" variant="outline" size="sm" @click="markSent">
                         <Send class="size-4" /> Mark sent
                     </Button>
-                    <Button v-if="invoice.status !== 'paid'" variant="outline" size="sm" @click="markPaid">
+                    <Button v-if="!isSettled" variant="outline" size="sm" @click="markPaid">
                         <CheckCheck class="size-4" /> Mark paid
                     </Button>
-                    <Button v-if="invoice.status !== 'paid'" variant="outline" size="sm" @click="generatePaymentLink" :disabled="generatingLink">
+                    <Button v-if="!isSettled" variant="outline" size="sm" @click="generatePaymentLink" :disabled="generatingLink">
                         <Link class="size-4" /> {{ generatingLink ? 'Generating...' : 'Payment link' }}
+                    </Button>
+                    <Button v-if="!isSettled" variant="outline" size="sm" @click="markVoid">
+                        <Ban class="size-4" /> Void
                     </Button>
                                         <Button v-if="invoice.status === 'draft'" variant="outline" size="sm" @click="destroy" class="text-destructive hover:text-destructive">
                         <Trash2 class="size-4" />

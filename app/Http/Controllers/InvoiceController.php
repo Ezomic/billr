@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -97,6 +98,7 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'paid', 422);
+        abort_if($invoice->status === 'void', 422, 'Cannot send a voided invoice.');
 
         $invoice->update(['status' => 'sent', 'issued_at' => $invoice->issued_at ?? today()]);
 
@@ -106,10 +108,27 @@ class InvoiceController extends Controller
     public function markPaid(Invoice $invoice): RedirectResponse
     {
         $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'void', 422, 'Cannot mark a voided invoice as paid.');
 
         $invoice->update(['status' => 'paid', 'paid_at' => now()]);
 
         return back()->with('success', 'Invoice marked as paid.');
+    }
+
+    public function markVoid(Invoice $invoice): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'paid', 422, 'Cannot void a paid invoice.');
+        abort_if($invoice->status === 'void', 422, 'Invoice is already void.');
+
+        DB::transaction(function () use ($invoice): void {
+            // Releasing the entries is the point of voiding rather than deleting:
+            // the invoice stays on record but the hours become billable again.
+            $invoice->timeEntries()->detach();
+            $invoice->update(['status' => 'void']);
+        });
+
+        return back()->with('success', 'Invoice voided.');
     }
 
     public function destroy(Invoice $invoice): RedirectResponse
@@ -146,6 +165,7 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'paid', 422, 'Cannot send a paid invoice.');
+        abort_if($invoice->status === 'void', 422, 'Cannot send a voided invoice.');
         $clientEmail = $invoice->client?->email;
 
         abort_if(empty($clientEmail), 422, 'Client has no email address.');
@@ -168,6 +188,7 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'paid', 422, 'Invoice is already paid.');
+        abort_if($invoice->status === 'void', 422, 'Cannot take payment on a voided invoice.');
 
         $url = $stripe->createPaymentLink($invoice);
 
