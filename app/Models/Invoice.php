@@ -55,4 +55,22 @@ class Invoice extends Model
     {
         return $this->belongsToMany(TimeEntry::class, 'invoice_time_entries');
     }
+
+    /** @return BelongsToMany<Project, $this> */
+    public function projects(): BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'invoice_projects');
+    }
+
+    public function recalculateTotals(): void
+    {
+        $subtotal = (int) $this->lines()->sum('amount');
+        $taxAmount = (int) round($subtotal * ((float) $this->tax_rate / 100));
+
+        $this->forceFill([
+            'subtotal' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'total' => $subtotal + $taxAmount,
+        ])->save();
+    }
 }

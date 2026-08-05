@@ -44,6 +44,10 @@ function formatDate(iso: string | null) {
     return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+function formatRate(line: InvoiceLine) {
+    return line.unit === 'hours' ? `${formatMoney(line.unit_price)}/hr` : formatMoney(line.unit_price)
+}
+
 function formatQty(line: InvoiceLine) {
     if (line.unit === 'hours') {
         const h = Math.floor(line.quantity / 60)
@@ -115,7 +119,7 @@ function formatQty(line: InvoiceLine) {
                         <TableRow v-for="line in invoice.lines" :key="line.id">
                             <TableCell>{{ line.description }}</TableCell>
                             <TableCell class="text-right font-mono">{{ formatQty(line) }}</TableCell>
-                            <TableCell class="text-right">{{ formatMoney(line.unit_price) }}/hr</TableCell>
+                            <TableCell class="text-right">{{ formatRate(line) }}</TableCell>
                             <TableCell class="text-right font-medium">{{ formatMoney(line.amount) }}</TableCell>
                         </TableRow>
                     </TableBody>

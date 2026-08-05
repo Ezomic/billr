@@ -9,6 +9,7 @@ use App\Concerns\InteractsWithCurrentUser;
 use App\Mail\InvoiceSentMail;
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use App\Models\TimeEntry;
 use App\Services\InvoicePdfRenderer;
 use App\Services\StripeService;
@@ -55,8 +56,10 @@ class InvoiceController extends Controller
     {
         $request->validate([
             'client_id' => ['required', 'integer', 'exists:clients,id'],
-            'time_entry_ids' => ['required', 'array', 'min:1'],
+            'time_entry_ids' => ['array'],
             'time_entry_ids.*' => ['integer', 'exists:time_entries,id'],
+            'project_ids' => ['array'],
+            'project_ids.*' => ['integer', 'exists:projects,id'],
             'tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
         ]);
 
@@ -64,13 +67,14 @@ class InvoiceController extends Controller
         /** @var Client $client */
         $client = $workspace->clients()->where('id', $request->integer('client_id'))->firstOrFail();
 
-        $ids = $request->collect('time_entry_ids')->map(fn (mixed $id): int => is_numeric($id) ? (int) $id : 0);
+        $toInt = fn (mixed $id): int => is_numeric($id) ? (int) $id : 0;
 
         $invoice = $action->handle(
             user: $this->currentUser(),
             client: $client,
-            timeEntryIds: $ids,
+            timeEntryIds: $request->collect('time_entry_ids')->map($toInt),
             taxRate: $request->float('tax_rate'),
+            fixedPriceProjectIds: $request->collect('project_ids')->map($toInt),
         );
 
         return redirect()->route('invoices.show', $invoice)->with('success', 'Invoice created.');
@@ -159,6 +163,66 @@ class InvoiceController extends Controller
             ->get();
 
         return response()->json($entries);
+    }
+
+    public function unbilledProjects(Request $request): JsonResponse
+    {
+        $request->validate(['client_id' => ['required', 'integer']]);
+
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
+        /** @var Client $client */
+        $client = $workspace->clients()->where('id', $request->integer('client_id'))->firstOrFail();
+
+        $projects = $client->projects()
+            ->where('type', 'fixed')
+            ->whereNotNull('fixed_price')
+            ->whereDoesntHave('invoices')
+            ->orderBy('name')
+            ->get(['id', 'name', 'fixed_price']);
+
+        return response()->json($projects);
+    }
+
+    public function storeLine(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_unless($invoice->status === 'draft', 422, 'Only a draft invoice can be edited.');
+
+        $request->validate([
+            'description' => ['required', 'string', 'max:255'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'unit_price' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $quantity = $request->integer('quantity');
+        $unitPrice = $request->integer('unit_price');
+        $highestSort = $invoice->lines()->max('sort_order');
+
+        $invoice->lines()->create([
+            'description' => $request->string('description')->toString(),
+            'quantity' => $quantity,
+            'unit' => 'fixed',
+            'unit_price' => $unitPrice,
+            'amount' => $quantity * $unitPrice,
+            'sort_order' => (is_numeric($highestSort) ? (int) $highestSort : 0) + 1,
+        ]);
+
+        $invoice->recalculateTotals();
+
+        return back()->with('success', 'Line added.');
+    }
+
+    public function destroyLine(Invoice $invoice, InvoiceLine $line): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_unless($invoice->status === 'draft', 422, 'Only a draft invoice can be edited.');
+        abort_unless($line->invoice_id === $invoice->id, 404);
+
+        $line->delete();
+
+        $invoice->recalculateTotals();
+
+        return back()->with('success', 'Line removed.');
     }
 
     public function send(Invoice $invoice): RedirectResponse
