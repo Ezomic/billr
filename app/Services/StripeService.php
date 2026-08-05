@@ -11,17 +11,23 @@ use Stripe\Webhook;
 
 class StripeService
 {
-    private StripeClient $client;
+    private ?StripeClient $client = null;
 
-    public function __construct()
+    // Built on demand: webhook verification needs only the signing secret, and
+    // the client constructor rejects an empty API key.
+    private function client(): StripeClient
     {
-        $key = config('services.stripe.key');
-        $this->client = new StripeClient(is_string($key) ? $key : '');
+        if ($this->client === null) {
+            $key = config('services.stripe.key');
+            $this->client = new StripeClient(is_string($key) ? $key : '');
+        }
+
+        return $this->client;
     }
 
     public function createPaymentLink(Invoice $invoice): string
     {
-        $price = $this->client->prices->create([
+        $price = $this->client()->prices->create([
             'unit_amount' => $invoice->total,
             'currency' => strtolower($invoice->currency),
             'product_data' => [
@@ -29,7 +35,7 @@ class StripeService
             ],
         ]);
 
-        $paymentLink = $this->client->paymentLinks->create([
+        $paymentLink = $this->client()->paymentLinks->create([
             'line_items' => [
                 ['price' => $price->id, 'quantity' => 1],
             ],
