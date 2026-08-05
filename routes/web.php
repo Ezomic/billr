@@ -102,6 +102,7 @@ Route::middleware('auth')->group(function () {
         // Must stay above /invoices/{invoice}, or the literal segment is swallowed by the wildcard.
         Route::get('/invoices/unbilled-entries', [InvoiceController::class, 'unbilledEntries'])->name('invoices.unbilled-entries');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+        Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
         Route::post('/invoices/{invoice}/send', [InvoiceController::class, 'send'])->name('invoices.send');
         Route::post('/invoices/{invoice}/payment-link', [InvoiceController::class, 'generatePaymentLink'])->name('invoices.payment-link');
         Route::post('/invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])->name('invoices.sent');
@@ -127,5 +128,6 @@ Route::middleware('auth')->group(function () {
     Route::prefix('portal')->name('portal.')->middleware('can:access-portal')->group(function () {
         Route::get('/dashboard', PortalDashboardController::class)->name('dashboard');
         Route::get('/invoices/{invoice}', [App\Http\Controllers\Portal\InvoiceController::class, 'show'])->name('invoices.show');
+        Route::get('/invoices/{invoice}/pdf', [App\Http\Controllers\Portal\InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
     });
 });

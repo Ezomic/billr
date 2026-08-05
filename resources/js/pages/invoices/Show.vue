@@ -5,7 +5,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Check, CheckCheck, Copy, Link, Send, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Check, CheckCheck, Copy, Download, Link, Send, Trash2 } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 interface InvoiceLine {
@@ -108,6 +108,9 @@ function destroy() {
                 </Button>
                 <div class="flex items-center gap-2">
                     <StatusBadge :status="invoice.status" />
+                    <Button variant="outline" size="sm" as="a" :href="route('invoices.pdf', invoice.id)">
+                        <Download class="size-4" /> PDF
+                    </Button>
                     <Button v-if="invoice.status === 'draft'" variant="outline" size="sm" @click="markSent">
                         <Send class="size-4" /> Mark sent
                     </Button>

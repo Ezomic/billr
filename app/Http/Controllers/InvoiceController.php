@@ -10,11 +10,13 @@ use App\Mail\InvoiceSentMail;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\TimeEntry;
+use App\Services\InvoicePdfRenderer;
 use App\Services\StripeService;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -82,6 +84,13 @@ class InvoiceController extends Controller
         return Inertia::render('invoices/Show', [
             'invoice' => $invoice,
         ]);
+    }
+
+    public function downloadPdf(Invoice $invoice, InvoicePdfRenderer $renderer): HttpResponse
+    {
+        $this->authorizeInvoice($invoice);
+
+        return $renderer->download($invoice);
     }
 
     public function markSent(Invoice $invoice): RedirectResponse

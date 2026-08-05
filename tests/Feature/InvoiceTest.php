@@ -423,6 +423,59 @@ it('bills only the invoiceable entries when the selection is mixed', function ()
         ->and($billed->fresh()->invoices)->toHaveCount(1);
 });
 
+it('downloads the invoice as a pdf', function () {
+    $invoice = Invoice::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'created_by' => $this->user->id,
+        'number' => 'INV-2026-0700',
+        'status' => 'sent',
+        'currency' => 'USD',
+        'subtotal' => 10000,
+        'tax_amount' => 0,
+        'total' => 10000,
+        'tax_rate' => 0,
+    ]);
+
+    $response = $this->get(route('invoices.pdf', $invoice));
+
+    $response->assertOk()
+        ->assertHeader('content-type', 'application/pdf')
+        ->assertDownload('INV-2026-0700.pdf');
+
+    expect($response->getContent())->toStartWith('%PDF-');
+});
+
+it('cannot download a pdf for another workspace invoice', function () {
+    $otherUser = User::factory()->create(['type' => 'freelancer']);
+    $otherWorkspace = Workspace::create([
+        'name' => 'Other WS',
+        'slug' => 'other-ws-pdf',
+        'owner_id' => $otherUser->id,
+        'currency' => 'USD',
+        'timezone' => 'UTC',
+    ]);
+    $otherClient = Client::create([
+        'workspace_id' => $otherWorkspace->id,
+        'name' => 'Other Client',
+        'currency' => 'USD',
+    ]);
+    $otherInvoice = Invoice::create([
+        'workspace_id' => $otherWorkspace->id,
+        'client_id' => $otherClient->id,
+        'created_by' => $otherUser->id,
+        'number' => 'INV-2026-9800',
+        'status' => 'draft',
+        'currency' => 'USD',
+        'subtotal' => 0,
+        'tax_amount' => 0,
+        'total' => 0,
+        'tax_rate' => 0,
+    ]);
+
+    $this->get(route('invoices.pdf', $otherInvoice))->assertForbidden();
+});
+
 it('cannot access another workspace invoice', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([

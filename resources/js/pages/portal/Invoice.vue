@@ -4,7 +4,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Printer } from 'lucide-vue-next'
+import { ArrowLeft, Download, Printer } from 'lucide-vue-next'
 
 interface InvoiceLine {
     id: number
@@ -61,9 +61,14 @@ function formatQty(line: InvoiceLine) {
                 <Button variant="outline" as="a" :href="route('portal.dashboard')">
                     <ArrowLeft class="size-4" /> Back
                 </Button>
-                <Button variant="outline" @click="window.print()">
-                    <Printer class="size-4" /> Print
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button variant="outline" as="a" :href="route('portal.invoices.pdf', invoice.id)">
+                        <Download class="size-4" /> PDF
+                    </Button>
+                    <Button variant="outline" @click="window.print()">
+                        <Printer class="size-4" /> Print
+                    </Button>
+                </div>
             </div>
 
             <div class="bg-card border rounded-xl p-8 space-y-8">
