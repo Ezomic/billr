@@ -14,6 +14,7 @@ import { ArrowLeft, Loader2 } from 'lucide-vue-next'
 import axios from 'axios'
 
 interface Client { id: number; name: string; currency: string | null }
+interface FixedPriceProject { id: number; name: string; fixed_price: number | null }
 interface TimeEntry {
     id: number
     description: string | null
@@ -28,16 +29,23 @@ const props = defineProps<{ clients: Client[] }>()
 const selectedClientId = ref('')
 const taxRate = ref('0')
 const unbilledEntries = ref<TimeEntry[]>([])
+const unbilledProjects = ref<FixedPriceProject[]>([])
 const selectedIds = ref<Set<number>>(new Set())
+const selectedProjectIds = ref<Set<number>>(new Set())
 const loading = ref(false)
 
 watch(selectedClientId, async (id) => {
     if (!id) return
     loading.value = true
     selectedIds.value = new Set()
+    selectedProjectIds.value = new Set()
     try {
-        const res = await axios.get(route('invoices.unbilled-entries'), { params: { client_id: id } })
-        unbilledEntries.value = res.data
+        const [entries, projects] = await Promise.all([
+            axios.get(route('invoices.unbilled-entries'), { params: { client_id: id } }),
+            axios.get(route('invoices.unbilled-projects'), { params: { client_id: id } }),
+        ])
+        unbilledEntries.value = entries.data
+        unbilledProjects.value = projects.data
     } finally {
         loading.value = false
     }
@@ -56,7 +64,12 @@ function toggleAll() {
     }
 }
 
-const subtotal = computed(() => {
+function toggleProject(id: number) {
+    if (selectedProjectIds.value.has(id)) selectedProjectIds.value.delete(id)
+    else selectedProjectIds.value.add(id)
+}
+
+const hoursSubtotal = computed(() => {
     return unbilledEntries.value
         .filter(e => selectedIds.value.has(e.id))
         .reduce((sum, e) => {
@@ -66,18 +79,29 @@ const subtotal = computed(() => {
         }, 0)
 })
 
+const fixedSubtotal = computed(() => {
+    return unbilledProjects.value
+        .filter(p => selectedProjectIds.value.has(p.id))
+        .reduce((sum, p) => sum + (p.fixed_price ?? 0), 0)
+})
+
+const subtotal = computed(() => hoursSubtotal.value + fixedSubtotal.value)
 const tax = computed(() => Math.round(subtotal.value * (parseFloat(taxRate.value) / 100)))
 const total = computed(() => subtotal.value + tax.value)
+
+const selectionCount = computed(() => selectedIds.value.size + selectedProjectIds.value.size)
 
 const form = useForm({
     client_id: '',
     time_entry_ids: [] as number[],
+    project_ids: [] as number[],
     tax_rate: '0',
 })
 
 function submit() {
     form.client_id = selectedClientId.value
     form.time_entry_ids = Array.from(selectedIds.value)
+    form.project_ids = Array.from(selectedProjectIds.value)
     form.tax_rate = taxRate.value
     form.post(route('invoices.store'))
 }
@@ -173,8 +197,37 @@ function formatDate(iso: string) {
                     </Table>
                 </div>
 
+                <div v-if="selectedClientId && !loading && unbilledProjects.length" class="space-y-2">
+                    <Label>Unbilled fixed-price projects</Label>
+
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead class="w-10"><span class="sr-only">Select</span></TableHead>
+                                <TableHead>Project</TableHead>
+                                <TableHead class="text-right">Fixed price</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow
+                                v-for="project in unbilledProjects"
+                                :key="project.id"
+                                class="cursor-pointer"
+                                :class="{ 'bg-muted/50': selectedProjectIds.has(project.id) }"
+                                @click="toggleProject(project.id)"
+                            >
+                                <TableCell @click.stop>
+                                    <Checkbox :checked="selectedProjectIds.has(project.id)" @update:checked="toggleProject(project.id)" />
+                                </TableCell>
+                                <TableCell>{{ project.name }}</TableCell>
+                                <TableCell class="text-right font-medium">{{ formatMoney(project.fixed_price ?? 0) }}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                </div>
+
                 <!-- Totals -->
-                <div v-if="selectedIds.size > 0" class="border-t pt-4 space-y-1 text-sm">
+                <div v-if="selectionCount > 0" class="border-t pt-4 space-y-1 text-sm">
                     <div class="flex justify-between">
                         <span class="text-muted-foreground">Subtotal</span>
                         <span>{{ formatMoney(subtotal) }}</span>
@@ -193,7 +246,7 @@ function formatDate(iso: string) {
                     <Button variant="outline" as="a" :href="route('invoices.index')">Cancel</Button>
                     <Button
                         @click="submit"
-                        :disabled="!selectedClientId || selectedIds.size === 0 || form.processing"
+                        :disabled="!selectedClientId || selectionCount === 0 || form.processing"
                     >
                         Create invoice
                     </Button>

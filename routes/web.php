@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
         // Must stay above /invoices/{invoice}, or the literal segment is swallowed by the wildcard.
         Route::get('/invoices/unbilled-entries', [InvoiceController::class, 'unbilledEntries'])->name('invoices.unbilled-entries');
+        Route::get('/invoices/unbilled-projects', [InvoiceController::class, 'unbilledProjects'])->name('invoices.unbilled-projects');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'downloadPdf'])->name('invoices.pdf');
         Route::post('/invoices/{invoice}/send', [InvoiceController::class, 'send'])->name('invoices.send');
@@ -108,6 +109,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])->name('invoices.sent');
         Route::post('/invoices/{invoice}/paid', [InvoiceController::class, 'markPaid'])->name('invoices.paid');
         Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'markVoid'])->name('invoices.void');
+        Route::post('/invoices/{invoice}/lines', [InvoiceController::class, 'storeLine'])->name('invoices.lines.store');
+        Route::delete('/invoices/{invoice}/lines/{line}', [InvoiceController::class, 'destroyLine'])->name('invoices.lines.destroy');
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
 
         // Settings

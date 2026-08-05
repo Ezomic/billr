@@ -6,26 +6,118 @@ namespace App\Actions;
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Project;
 use App\Models\TimeEntry;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CreateInvoiceFromTimeEntries
 {
-    /** @param Collection<int, int> $timeEntryIds */
-    public function handle(User $user, Client $client, Collection $timeEntryIds, float $taxRate = 0): Invoice
-    {
+    /**
+     * @param  Collection<int, int>  $timeEntryIds
+     * @param  Collection<int, int>|null  $fixedPriceProjectIds
+     */
+    public function handle(
+        User $user,
+        Client $client,
+        Collection $timeEntryIds,
+        float $taxRate = 0,
+        ?Collection $fixedPriceProjectIds = null,
+    ): Invoice {
         // Number allocation and insert have to be atomic, or two concurrent
         // creations in the same workspace read the same sequence.
-        return DB::transaction(fn (): Invoice => $this->build($user, $client, $timeEntryIds, $taxRate));
+        return DB::transaction(fn (): Invoice => $this->build(
+            $user,
+            $client,
+            $timeEntryIds,
+            $taxRate,
+            $fixedPriceProjectIds ?? collect(),
+        ));
     }
 
-    /** @param Collection<int, int> $timeEntryIds */
-    private function build(User $user, Client $client, Collection $timeEntryIds, float $taxRate): Invoice
-    {
+    /**
+     * @param  Collection<int, int>  $timeEntryIds
+     * @param  Collection<int, int>  $fixedPriceProjectIds
+     */
+    private function build(
+        User $user,
+        Client $client,
+        Collection $timeEntryIds,
+        float $taxRate,
+        Collection $fixedPriceProjectIds,
+    ): Invoice {
         $workspace = $user->requireCurrentWorkspace();
+
+        $entries = $this->billableEntries($client, $timeEntryIds, (bool) $workspace->require_client_approval);
+        $projects = $this->billableFixedPriceProjects($client, $fixedPriceProjectIds);
+
+        if ($entries->isEmpty() && $projects->isEmpty()) {
+            throw ValidationException::withMessages([
+                'time_entry_ids' => 'Nothing on this invoice can be billed. The selected time entries and fixed-price projects may already be invoiced, still running, or awaiting client approval.',
+            ]);
+        }
+
+        $invoice = Invoice::create([
+            'workspace_id' => $workspace->id,
+            'client_id' => $client->id,
+            'created_by' => $user->id,
+            'number' => $this->nextInvoiceNumber($workspace->id),
+            'status' => 'draft',
+            'currency' => $client->currency ?? $workspace->currency,
+            'tax_rate' => $taxRate,
+            'issued_at' => today(),
+            'due_at' => today()->addDays(30),
+        ]);
+
+        $sort = 0;
+
+        foreach ($entries as $entry) {
+            $minutes = $entry->duration_minutes ?? 0;
+            $rate = $entry->hourly_rate ?? $entry->project->hourly_rate ?? 0;
+
+            $invoice->lines()->create([
+                'description' => $entry->description ?? $entry->project->name ?? '',
+                'quantity' => $minutes,
+                'unit' => 'hours',
+                'unit_price' => $rate,
+                'amount' => (int) round(($minutes / 60) * $rate),
+                'sort_order' => $sort++,
+            ]);
+        }
+
+        foreach ($projects as $project) {
+            $price = $project->fixed_price ?? 0;
+
+            $invoice->lines()->create([
+                'description' => $project->name,
+                'quantity' => 1,
+                'unit' => 'fixed',
+                'unit_price' => $price,
+                'amount' => $price,
+                'sort_order' => $sort++,
+            ]);
+        }
+
+        $invoice->timeEntries()->attach($entries->pluck('id'));
+        $invoice->projects()->attach($projects->pluck('id'));
+
+        $invoice->recalculateTotals();
+
+        return $invoice;
+    }
+
+    /**
+     * @param  Collection<int, int>  $timeEntryIds
+     * @return EloquentCollection<int, TimeEntry>
+     */
+    private function billableEntries(Client $client, Collection $timeEntryIds, bool $requireApproval): EloquentCollection
+    {
+        if ($timeEntryIds->isEmpty()) {
+            return new EloquentCollection;
+        }
 
         // These filters have to live here rather than only in the picker query,
         // or a replayed request bills the same hours onto a second invoice.
@@ -35,63 +127,29 @@ class CreateInvoiceFromTimeEntries
             ->where('billable', true)
             ->whereDoesntHave('invoices');
 
-        if ($workspace->require_client_approval) {
+        if ($requireApproval) {
             $query->where('client_approved', true);
         }
 
-        $entries = $query->get();
+        return $query->get();
+    }
 
-        if ($entries->isEmpty()) {
-            throw ValidationException::withMessages([
-                'time_entry_ids' => 'None of the selected time entries can be invoiced. They may already be billed, still running, or awaiting client approval.',
-            ]);
+    /**
+     * @param  Collection<int, int>  $projectIds
+     * @return EloquentCollection<int, Project>
+     */
+    private function billableFixedPriceProjects(Client $client, Collection $projectIds): EloquentCollection
+    {
+        if ($projectIds->isEmpty()) {
+            return new EloquentCollection;
         }
 
-        $number = $this->nextInvoiceNumber($workspace->id);
-
-        $invoice = Invoice::create([
-            'workspace_id' => $workspace->id,
-            'client_id' => $client->id,
-            'created_by' => $user->id,
-            'number' => $number,
-            'status' => 'draft',
-            'currency' => $client->currency ?? $workspace->currency,
-            'tax_rate' => $taxRate,
-            'issued_at' => today(),
-            'due_at' => today()->addDays(30),
-        ]);
-
-        $subtotal = 0;
-        $sort = 0;
-
-        foreach ($entries as $entry) {
-            $minutes = $entry->duration_minutes ?? 0;
-            $rate = $entry->hourly_rate ?? $entry->project->hourly_rate ?? 0;
-            $amount = (int) round(($minutes / 60) * $rate);
-            $subtotal += $amount;
-
-            $invoice->lines()->create([
-                'description' => $entry->description ?? $entry->project->name ?? '',
-                'quantity' => $minutes,
-                'unit' => 'hours',
-                'unit_price' => $rate,
-                'amount' => $amount,
-                'sort_order' => $sort++,
-            ]);
-        }
-
-        $taxAmount = (int) round($subtotal * ($taxRate / 100));
-        $total = $subtotal + $taxAmount;
-
-        $invoice->update([
-            'subtotal' => $subtotal,
-            'tax_amount' => $taxAmount,
-            'total' => $total,
-        ]);
-
-        $invoice->timeEntries()->attach($entries->pluck('id'));
-
-        return $invoice;
+        return Project::whereIn('id', $projectIds)
+            ->where('client_id', $client->id)
+            ->where('type', 'fixed')
+            ->whereNotNull('fixed_price')
+            ->whereDoesntHave('invoices')
+            ->get();
     }
 
     // Counting rows would skip soft-deleted invoices while their numbers stay in

@@ -3,9 +3,11 @@ import { useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Ban, Check, CheckCheck, Copy, Download, Link, Send, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Ban, Check, CheckCheck, Copy, Download, Link, Plus, Send, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 interface InvoiceLine {
@@ -39,6 +41,16 @@ interface Invoice {
 const props = defineProps<{ invoice: Invoice }>()
 
 const isSettled = computed(() => props.invoice.status === 'paid' || props.invoice.status === 'void')
+const isDraft = computed(() => props.invoice.status === 'draft')
+
+const lineForm = useForm({ description: '', quantity: '1', unitPrice: '' })
+
+const canAddLine = computed(() =>
+    lineForm.description.trim() !== '' &&
+    Number(lineForm.quantity) >= 1 &&
+    lineForm.unitPrice !== '' &&
+    !Number.isNaN(parseFloat(lineForm.unitPrice))
+)
 
 const paymentLink = ref<string | null>(props.invoice.stripe_payment_link)
 const generatingLink = ref(false)
@@ -92,6 +104,28 @@ function markSent() {
 
 function markPaid() {
     useForm({}).post(route('invoices.paid', props.invoice.id))
+}
+
+function formatRate(line: InvoiceLine) {
+    return line.unit === 'hours' ? `${formatMoney(line.unit_price)}/hr` : formatMoney(line.unit_price)
+}
+
+function addLine() {
+    if (!canAddLine.value) return
+    lineForm
+        .transform((data) => ({
+            description: data.description,
+            quantity: Number(data.quantity),
+            unit_price: Math.round(parseFloat(data.unitPrice) * 100),
+        }))
+        .post(route('invoices.lines.store', props.invoice.id), {
+            preserveScroll: true,
+            onSuccess: () => lineForm.reset(),
+        })
+}
+
+function removeLine(lineId: number) {
+    useForm({}).delete(route('invoices.lines.destroy', [props.invoice.id, lineId]), { preserveScroll: true })
 }
 
 function markVoid() {
@@ -178,17 +212,42 @@ function destroy() {
                             <TableHead class="text-right">Duration</TableHead>
                             <TableHead class="text-right">Rate</TableHead>
                             <TableHead class="text-right">Amount</TableHead>
+                            <TableHead v-if="isDraft" class="w-10"><span class="sr-only">Remove</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         <TableRow v-for="line in invoice.lines" :key="line.id">
                             <TableCell>{{ line.description }}</TableCell>
                             <TableCell class="text-right font-mono">{{ formatQty(line) }}</TableCell>
-                            <TableCell class="text-right">{{ formatMoney(line.unit_price) }}/hr</TableCell>
+                            <TableCell class="text-right">{{ formatRate(line) }}</TableCell>
                             <TableCell class="text-right font-medium">{{ formatMoney(line.amount) }}</TableCell>
+                            <TableCell v-if="isDraft" class="w-10 text-right">
+                                <Button variant="ghost" size="sm" class="text-destructive hover:text-destructive" @click="removeLine(line.id)">
+                                    <Trash2 class="size-3.5" />
+                                </Button>
+                            </TableCell>
                         </TableRow>
                     </TableBody>
                 </Table>
+
+                <!-- Manual line editor, drafts only -->
+                <form v-if="isDraft" class="flex flex-wrap items-end gap-2" @submit.prevent="addLine">
+                    <div class="min-w-48 flex-1 space-y-1">
+                        <Label class="text-xs">Description</Label>
+                        <Input v-model="lineForm.description" placeholder="Fixed fee, expense, discount…" />
+                    </div>
+                    <div class="w-24 space-y-1">
+                        <Label class="text-xs">Qty</Label>
+                        <Input v-model="lineForm.quantity" type="number" min="1" step="1" />
+                    </div>
+                    <div class="w-32 space-y-1">
+                        <Label class="text-xs">Unit price</Label>
+                        <Input v-model="lineForm.unitPrice" type="number" min="0" step="0.01" placeholder="0.00" />
+                    </div>
+                    <Button type="submit" variant="outline" size="sm" :disabled="!canAddLine || lineForm.processing">
+                        <Plus class="size-4" /> Add line
+                    </Button>
+                </form>
 
                 <Separator />
 
