@@ -328,6 +328,101 @@ it('allocates the same first number independently per workspace', function () {
         ->and(Invoice::where('workspace_id', $otherWorkspace->id)->value('number'))->toBe($number);
 });
 
+it('refuses to bill time entries that are already on an invoice', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $payload = [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ];
+
+    $this->post(route('invoices.store'), $payload)->assertRedirect();
+
+    $this->post(route('invoices.store'), $payload)
+        ->assertSessionHasErrors('time_entry_ids');
+
+    expect(Invoice::count())->toBe(1)
+        ->and($entry->fresh()->invoices)->toHaveCount(1);
+});
+
+it('refuses to bill non billable or still running entries', function () {
+    $nonBillable = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHours(2),
+        'stopped_at' => now()->subHour(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => false,
+    ]);
+
+    $running = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => null,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$nonBillable->id, $running->id],
+        'tax_rate' => 0,
+    ])->assertSessionHasErrors('time_entry_ids');
+
+    expect(Invoice::count())->toBe(0);
+});
+
+it('bills only the invoiceable entries when the selection is mixed', function () {
+    $billed = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHours(3),
+        'stopped_at' => now()->subHours(2),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $fresh = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$billed->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$billed->id, $fresh->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $second = Invoice::latest('id')->first();
+
+    expect($second->lines)->toHaveCount(1)
+        ->and($second->total)->toBe(10000)
+        ->and($billed->fresh()->invoices)->toHaveCount(1);
+});
+
 it('cannot access another workspace invoice', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([

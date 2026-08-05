@@ -10,6 +10,7 @@ use App\Models\TimeEntry;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CreateInvoiceFromTimeEntries
 {
@@ -26,14 +27,25 @@ class CreateInvoiceFromTimeEntries
     {
         $workspace = $user->requireCurrentWorkspace();
 
+        // These filters have to live here rather than only in the picker query,
+        // or a replayed request bills the same hours onto a second invoice.
         $query = TimeEntry::whereIn('id', $timeEntryIds)
-            ->whereHas('project', fn ($q) => $q->where('client_id', $client->id));
+            ->whereHas('project', fn ($q) => $q->where('client_id', $client->id))
+            ->whereNotNull('stopped_at')
+            ->where('billable', true)
+            ->whereDoesntHave('invoices');
 
         if ($workspace->require_client_approval) {
             $query->where('client_approved', true);
         }
 
         $entries = $query->get();
+
+        if ($entries->isEmpty()) {
+            throw ValidationException::withMessages([
+                'time_entry_ids' => 'None of the selected time entries can be invoiced. They may already be billed, still running, or awaiting client approval.',
+            ]);
+        }
 
         $number = $this->nextInvoiceNumber($workspace->id);
 
