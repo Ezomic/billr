@@ -476,6 +476,126 @@ it('cannot download a pdf for another workspace invoice', function () {
     $this->get(route('invoices.pdf', $otherInvoice))->assertForbidden();
 });
 
+it('voids a sent invoice and releases its time entries', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $invoice = Invoice::latest('id')->first();
+    $this->post(route('invoices.sent', $invoice))->assertRedirect();
+
+    $this->post(route('invoices.void', $invoice))->assertRedirect();
+
+    expect($invoice->fresh()->status)->toBe('void')
+        ->and($entry->fresh()->invoices)->toHaveCount(0);
+
+    $this->getJson(route('invoices.unbilled-entries', ['client_id' => $this->client->id]))
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.id', $entry->id);
+});
+
+it('can rebill the time entries released by a voided invoice', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $payload = [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ];
+
+    $this->post(route('invoices.store'), $payload)->assertRedirect();
+    $first = Invoice::latest('id')->first();
+
+    $this->post(route('invoices.void', $first))->assertRedirect();
+
+    $this->post(route('invoices.store'), $payload)->assertRedirect();
+    $second = Invoice::latest('id')->first();
+
+    expect($second->id)->not->toBe($first->id)
+        ->and($second->total)->toBe(10000)
+        ->and($second->number)->not->toBe($first->number);
+});
+
+it('cannot void a paid invoice', function () {
+    $invoice = Invoice::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'created_by' => $this->user->id,
+        'number' => 'INV-2026-0800',
+        'status' => 'paid',
+        'currency' => 'USD',
+        'subtotal' => 5000,
+        'tax_amount' => 0,
+        'total' => 5000,
+        'tax_rate' => 0,
+    ]);
+
+    $this->post(route('invoices.void', $invoice))->assertStatus(422);
+
+    expect($invoice->fresh()->status)->toBe('paid');
+});
+
+it('refuses to send or settle an invoice that is void', function () {
+    $invoice = Invoice::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'created_by' => $this->user->id,
+        'number' => 'INV-2026-0801',
+        'status' => 'void',
+        'currency' => 'USD',
+        'subtotal' => 5000,
+        'tax_amount' => 0,
+        'total' => 5000,
+        'tax_rate' => 0,
+    ]);
+
+    $this->post(route('invoices.sent', $invoice))->assertStatus(422);
+    $this->post(route('invoices.paid', $invoice))->assertStatus(422);
+    $this->post(route('invoices.void', $invoice))->assertStatus(422);
+
+    expect($invoice->fresh()->status)->toBe('void');
+});
+
+it('leaves a voided invoice out of the overdue sweep', function () {
+    $invoice = Invoice::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'created_by' => $this->user->id,
+        'number' => 'INV-2026-0802',
+        'status' => 'void',
+        'currency' => 'USD',
+        'subtotal' => 5000,
+        'tax_amount' => 0,
+        'total' => 5000,
+        'tax_rate' => 0,
+        'due_at' => today()->subDays(10),
+    ]);
+
+    $this->artisan('invoices:mark-overdue')->assertSuccessful();
+
+    expect($invoice->fresh()->status)->toBe('void');
+});
+
 it('cannot access another workspace invoice', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([
