@@ -10,6 +10,8 @@ use App\Models\Client;
 use App\Models\TimeEntry;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class ClientPortalController extends Controller
@@ -48,22 +50,45 @@ class ClientPortalController extends Controller
         ]);
     }
 
-    public function approve(string $token): RedirectResponse
+    public function approve(Request $request, string $token): RedirectResponse
     {
         $client = Client::where('portal_token', $token)->firstOrFail();
 
-        $entryIds = $client->projects()
-            ->with(['timeEntries' => fn (Relation $q) => $q
-                ->whereNotNull('stopped_at')
-                ->where('billable', true)
-                ->whereDoesntHave('invoices'),
-            ])
-            ->get()
-            ->flatMap(fn ($project) => $project->timeEntries->pluck('id'));
+        $request->validate([
+            'time_entry_ids' => ['required', 'array', 'min:1'],
+            'time_entry_ids.*' => ['integer'],
+        ]);
 
-        TimeEntry::whereIn('id', $entryIds)->update(['client_approved' => true]);
+        // Intersecting against the client's own pending entries keeps a submitted
+        // id from reaching another client's timesheet, and drops anything that was
+        // billed or invoiced between the page rendering and this submission.
+        $ids = $request->collect('time_entry_ids')
+            ->map(fn (mixed $id): int => is_numeric($id) ? (int) $id : 0)
+            ->intersect($this->approvableEntryIds($client))
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return back()->withErrors([
+                'time_entry_ids' => 'Those time entries are no longer awaiting your approval.',
+            ]);
+        }
+
+        TimeEntry::whereIn('id', $ids)->update(['client_approved' => true]);
 
         return redirect()->route('client-portal.show', $token)
-            ->with('approved', true);
+            ->with('approved', $ids->count());
+    }
+
+    /** @return Collection<int, int> */
+    private function approvableEntryIds(Client $client): Collection
+    {
+        return TimeEntry::query()
+            ->whereIn('project_id', $client->projects()->select('projects.id'))
+            ->whereNotNull('stopped_at')
+            ->where('billable', true)
+            ->whereDoesntHave('invoices')
+            ->pluck('id')
+            ->map(fn (mixed $id): int => is_numeric($id) ? (int) $id : 0)
+            ->values();
     }
 }
