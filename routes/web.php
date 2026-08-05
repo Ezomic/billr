@@ -49,9 +49,12 @@ Route::middleware('guest')->group(function () {
     Route::post('/invitations/{token}', [InvitationController::class, 'store'])->name('invitations.accept');
 });
 
-// Client timesheet approval portal — token-based, no login required
-Route::get('/client-portal/{token}', [ClientPortalController::class, 'show'])->name('client-portal.show');
-Route::post('/client-portal/{token}/approve', [ClientPortalController::class, 'approve'])->name('client-portal.approve');
+// Client timesheet approval portal — token-based, no login required, so the
+// throttle is the only thing standing between the token and a brute-force sweep.
+Route::middleware('throttle:20,1')->group(function () {
+    Route::get('/client-portal/{token}', [ClientPortalController::class, 'show'])->name('client-portal.show');
+    Route::post('/client-portal/{token}/approve', [ClientPortalController::class, 'approve'])->name('client-portal.approve');
+});
 
 // Authenticated routes
 Route::middleware('auth')->group(function () {
