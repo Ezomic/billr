@@ -230,6 +230,104 @@ it('leaves already billed and non billable entries out of the unbilled list', fu
         ->assertJsonCount(0);
 });
 
+it('does not reuse a number after a draft invoice is deleted', function () {
+    $makeInvoice = function () {
+        $entry = TimeEntry::create([
+            'project_id' => $this->project->id,
+            'user_id' => $this->user->id,
+            'started_at' => now()->subHour(),
+            'stopped_at' => now(),
+            'duration_minutes' => 60,
+            'hourly_rate' => 10000,
+            'billable' => true,
+        ]);
+
+        $this->post(route('invoices.store'), [
+            'client_id' => $this->client->id,
+            'time_entry_ids' => [$entry->id],
+            'tax_rate' => 0,
+        ])->assertRedirect();
+
+        return Invoice::latest('id')->first();
+    };
+
+    $first = $makeInvoice();
+    $second = $makeInvoice();
+
+    expect($first->number)->toBe('INV-'.now()->year.'-0001')
+        ->and($second->number)->toBe('INV-'.now()->year.'-0002');
+
+    $this->delete(route('invoices.destroy', $second))->assertRedirect();
+
+    $third = $makeInvoice();
+
+    expect($third->number)->toBe('INV-'.now()->year.'-0003');
+});
+
+it('allocates the same first number independently per workspace', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $otherUser = User::factory()->create(['type' => 'freelancer']);
+    $otherWorkspace = Workspace::create([
+        'name' => 'Second WS',
+        'slug' => 'second-ws',
+        'owner_id' => $otherUser->id,
+        'currency' => 'USD',
+        'timezone' => 'UTC',
+    ]);
+    $otherWorkspace->members()->attach($otherUser->id, ['role' => 'owner']);
+    $otherUser->update(['current_workspace_id' => $otherWorkspace->id]);
+
+    $otherClient = Client::create([
+        'workspace_id' => $otherWorkspace->id,
+        'name' => 'Second Client',
+        'currency' => 'USD',
+    ]);
+    $otherProject = Project::create([
+        'workspace_id' => $otherWorkspace->id,
+        'client_id' => $otherClient->id,
+        'name' => 'Second Project',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 10000,
+    ]);
+    $otherEntry = TimeEntry::create([
+        'project_id' => $otherProject->id,
+        'user_id' => $otherUser->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->actingAs($otherUser)
+        ->post(route('invoices.store'), [
+            'client_id' => $otherClient->id,
+            'time_entry_ids' => [$otherEntry->id],
+            'tax_rate' => 0,
+        ])->assertRedirect();
+
+    $number = 'INV-'.now()->year.'-0001';
+
+    expect(Invoice::where('workspace_id', $this->workspace->id)->value('number'))->toBe($number)
+        ->and(Invoice::where('workspace_id', $otherWorkspace->id)->value('number'))->toBe($number);
+});
+
 it('cannot access another workspace invoice', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([
