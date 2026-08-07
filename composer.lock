@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "88f2c92c88aa5e5aff149e8cd6849c21",
+    "content-hash": "1f1aaefd214f10ad70adb2eaa6418d49",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -6945,6 +6945,80 @@
             "time": "2026-02-04T18:08:13+00:00"
         },
         {
+            "name": "thijssensoftware/flare-client",
+            "version": "0.2.0",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:Ezomic/flare-client.git",
+                "reference": "a4757cabd3915a544d0e691e8617332d0dab11ea"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Ezomic/flare-client/zipball/a4757cabd3915a544d0e691e8617332d0dab11ea",
+                "reference": "a4757cabd3915a544d0e691e8617332d0dab11ea",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^11.0|^12.0|^13.0",
+                "illuminate/http": "^11.0|^12.0|^13.0",
+                "illuminate/queue": "^11.0|^12.0|^13.0",
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "php": "^8.3",
+                "thijssensoftware/request-id": "^0.1.0"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.9",
+                "laravel/pint": "^1.0",
+                "orchestra/testbench": "^9.0|^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Thijssensoftware\\FlareClient\\FlareClientServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thijssensoftware\\FlareClient\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Thijssensoftware\\FlareClient\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "pest"
+                ],
+                "test:coverage": [
+                    "pest --coverage --min=100"
+                ],
+                "lint": [
+                    "pint"
+                ],
+                "lint:check": [
+                    "pint --test"
+                ],
+                "types:check": [
+                    "phpstan analyse --memory-limit=512M"
+                ],
+                "ci:check": [
+                    "@lint:check",
+                    "@types:check",
+                    "@test"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Reports exceptions, failed jobs and failed scheduled tasks to flare.",
+            "time": "2026-08-06T13:48:01+00:00"
+        },
+        {
             "name": "thijssensoftware/id-client",
             "version": "0.1.0",
             "source": {
@@ -6988,6 +7062,64 @@
                 "issues": "https://github.com/Ezomic/id-client/issues"
             },
             "time": "2026-07-10T00:58:22+00:00"
+        },
+        {
+            "name": "thijssensoftware/request-id",
+            "version": "0.1.0",
+            "source": {
+                "type": "git",
+                "url": "git@github.com:Ezomic/request-id.git",
+                "reference": "7220761b0cd9c0ccee9e29e82355dfe0deade1bb"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Ezomic/request-id/zipball/7220761b0cd9c0ccee9e29e82355dfe0deade1bb",
+                "reference": "7220761b0cd9c0ccee9e29e82355dfe0deade1bb",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^11.0|^12.0|^13.0",
+                "illuminate/http": "^11.0|^12.0|^13.0",
+                "illuminate/queue": "^11.0|^12.0|^13.0",
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.0",
+                "orchestra/testbench": "^9.0|^10.0|^11.0",
+                "pestphp/pest": "^3.0|^4.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Thijssensoftware\\RequestId\\RequestIdServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thijssensoftware\\RequestId\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Thijssensoftware\\RequestId\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "pest"
+                ],
+                "lint": [
+                    "pint"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Stamps a correlation id on every request, queued job and console command, and forwards it to trusted hosts.",
+            "time": "2026-08-01T21:01:13+00:00"
         },
         {
             "name": "tightenco/ziggy",
