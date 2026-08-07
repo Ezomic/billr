@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\Client;
+use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\TimeEntry;
 use App\Models\User;
@@ -240,6 +241,68 @@ it('can update and delete an own entry', function () {
     $this->delete(route('time.destroy', $entry))->assertRedirect();
 
     expect(TimeEntry::count())->toBe(0);
+});
+
+it('refuses to edit or delete an entry that has been invoiced', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $this->put(route('time.update', $entry), [
+        'project_id' => $this->project->id,
+        'description' => 'Padded',
+        'started_at' => now()->subHours(9)->toDateTimeString(),
+        'stopped_at' => now()->toDateTimeString(),
+    ])->assertStatus(422);
+
+    $this->delete(route('time.destroy', $entry))->assertStatus(422);
+
+    expect($entry->fresh()->duration_minutes)->toBe(60)
+        ->and($entry->fresh()->description)->toBeNull()
+        ->and(TimeEntry::count())->toBe(1);
+});
+
+it('makes an entry editable again once its invoice is voided', function () {
+    $entry = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHour(),
+        'stopped_at' => now(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $this->post(route('invoices.store'), [
+        'client_id' => $this->client->id,
+        'time_entry_ids' => [$entry->id],
+        'tax_rate' => 0,
+    ])->assertRedirect();
+
+    $invoice = Invoice::latest('id')->first();
+    $this->post(route('invoices.void', $invoice))->assertRedirect();
+
+    $this->put(route('time.update', $entry), [
+        'project_id' => $this->project->id,
+        'description' => 'Corrected after void',
+        'started_at' => now()->subMinutes(30)->toDateTimeString(),
+        'stopped_at' => now()->toDateTimeString(),
+    ])->assertRedirect();
+
+    expect($entry->fresh()->description)->toBe('Corrected after void')
+        ->and($entry->fresh()->duration_minutes)->toBe(30);
 });
 
 it('cannot stop, update or delete another user entry', function () {
