@@ -119,6 +119,7 @@ class TimeEntryController extends Controller
     public function update(StoreTimeEntryRequest $request, TimeEntry $entry): RedirectResponse
     {
         abort_unless($entry->user_id === Auth::id(), 403);
+        $this->abortIfBilled($entry);
 
         $data = $request->validated();
 
@@ -136,9 +137,22 @@ class TimeEntryController extends Controller
     public function destroy(TimeEntry $entry): RedirectResponse
     {
         abort_unless($entry->user_id === Auth::id(), 403);
+        $this->abortIfBilled($entry);
 
         $entry->delete();
 
         return back()->with('success', 'Entry deleted.');
+    }
+
+    // Editing billed time would leave the invoice line stating an amount the
+    // hours behind it no longer support. Voiding detaches the entries, so an
+    // entry from a voided invoice is editable again.
+    private function abortIfBilled(TimeEntry $entry): void
+    {
+        abort_if(
+            $entry->invoices()->exists(),
+            422,
+            'This entry is on an invoice. Void that invoice first to change it.',
+        );
     }
 }
