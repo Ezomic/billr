@@ -140,6 +140,53 @@ it('stops a running timer and records the elapsed minutes', function () {
         ->and($entry->fresh()->duration_minutes)->toBe(45);
 });
 
+it('stops the running timer instead of discarding it when another is started', function () {
+    $other = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'name' => 'Second Project',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 12000,
+    ]);
+
+    $running = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subMinutes(25),
+        'billable' => true,
+        'hourly_rate' => 10000,
+    ]);
+
+    $this->post(route('time.start', $other->id))->assertRedirect();
+
+    expect($running->fresh())->not->toBeNull()
+        ->and($running->fresh()->stopped_at)->not->toBeNull()
+        ->and($running->fresh()->duration_minutes)->toBe(25);
+
+    expect(TimeEntry::count())->toBe(2);
+
+    $new = TimeEntry::whereNull('stopped_at')->first();
+
+    expect($new->project_id)->toBe($other->id)
+        ->and($new->hourly_rate)->toBe(12000);
+});
+
+it('does not stop another user timer when starting one', function () {
+    $otherUser = User::factory()->create(['type' => 'freelancer']);
+
+    $theirs = TimeEntry::create([
+        'project_id' => $this->project->id,
+        'user_id' => $otherUser->id,
+        'started_at' => now()->subMinutes(10),
+        'billable' => true,
+    ]);
+
+    $this->post(route('time.start', $this->project->id))->assertRedirect();
+
+    expect($theirs->fresh()->stopped_at)->toBeNull();
+});
+
 it('cannot start a timer on a project in another workspace', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([

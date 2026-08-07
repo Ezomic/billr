@@ -76,16 +76,22 @@ class TimeEntryController extends Controller
         $user = $this->currentUser();
         $workspace = $user->requireCurrentWorkspace();
 
-        $workspace->projects()->findOrFail($projectId);
+        /** @var Project $project */
+        $project = $workspace->projects()->findOrFail($projectId);
 
-        TimeEntry::where('user_id', $user->id)->whereNull('stopped_at')->delete();
+        // Switching projects must not throw away the running entry: stop it and
+        // keep the time, the way the stop action does.
+        TimeEntry::where('user_id', $user->id)
+            ->whereNull('stopped_at')
+            ->get()
+            ->each(fn (TimeEntry $running) => $this->stopEntry($running));
 
         TimeEntry::create([
-            'project_id' => $projectId,
+            'project_id' => $project->id,
             'user_id' => $user->id,
             'started_at' => now(),
             'billable' => true,
-            'hourly_rate' => $workspace->projects()->find($projectId)?->hourly_rate,
+            'hourly_rate' => $project->hourly_rate,
         ]);
 
         return back()->with('success', 'Timer started.');
@@ -95,15 +101,19 @@ class TimeEntryController extends Controller
     {
         abort_unless($entry->user_id === Auth::id(), 403);
 
+        $this->stopEntry($entry);
+
+        return back()->with('success', 'Timer stopped.');
+    }
+
+    private function stopEntry(TimeEntry $entry): void
+    {
         $stopped = now();
-        $duration = (int) $entry->started_at->diffInMinutes($stopped);
 
         $entry->update([
             'stopped_at' => $stopped,
-            'duration_minutes' => $duration,
+            'duration_minutes' => (int) $entry->started_at->diffInMinutes($stopped),
         ]);
-
-        return back()->with('success', 'Timer stopped.');
     }
 
     public function update(StoreTimeEntryRequest $request, TimeEntry $entry): RedirectResponse
