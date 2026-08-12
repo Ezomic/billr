@@ -126,6 +126,98 @@ it('can delete a project', function () {
         ->and(Project::withTrashed()->count())->toBe(1);
 });
 
+it('archives and restores a project', function () {
+    $project = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'name' => 'Finished work',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 9500,
+    ]);
+
+    $this->post(route('projects.archive', $project))->assertRedirect();
+    expect($project->fresh()->status)->toBe('archived');
+
+    $this->post(route('projects.unarchive', $project))->assertRedirect();
+    expect($project->fresh()->status)->toBe('active');
+});
+
+it('keeps an archived project out of the timer project list', function () {
+    $active = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'name' => 'Still going',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 9500,
+    ]);
+
+    $archived = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'name' => 'Wrapped up',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 9500,
+    ]);
+
+    $this->post(route('projects.archive', $archived))->assertRedirect();
+
+    $this->get(route('time.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('projects', 1)
+            ->where('projects.0.id', $active->id)
+        );
+});
+
+it('still lets an archived project be invoiced', function () {
+    $project = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $this->client->id,
+        'name' => 'Archived but unpaid',
+        'status' => 'active',
+        'type' => 'fixed',
+        'fixed_price' => 150000,
+    ]);
+
+    $this->post(route('projects.archive', $project))->assertRedirect();
+
+    $this->getJson(route('invoices.unbilled-projects', ['client_id' => $this->client->id]))
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.id', $project->id);
+});
+
+it('cannot archive another workspace project', function () {
+    $otherUser = User::factory()->create(['type' => 'freelancer']);
+    $otherWorkspace = Workspace::create([
+        'name' => 'Other WS',
+        'slug' => 'other-ws-archive',
+        'owner_id' => $otherUser->id,
+        'currency' => 'USD',
+        'timezone' => 'UTC',
+    ]);
+    $otherClient = Client::create([
+        'workspace_id' => $otherWorkspace->id,
+        'name' => 'Other Client',
+        'currency' => 'USD',
+    ]);
+    $otherProject = Project::create([
+        'workspace_id' => $otherWorkspace->id,
+        'client_id' => $otherClient->id,
+        'name' => 'Theirs',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 9500,
+    ]);
+
+    $this->post(route('projects.archive', $otherProject))->assertForbidden();
+
+    expect($otherProject->fresh()->status)->toBe('active');
+});
+
 it('cannot create a project for a client in another workspace', function () {
     $otherUser = User::factory()->create(['type' => 'freelancer']);
     $otherWorkspace = Workspace::create([
