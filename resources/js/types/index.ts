@@ -11,6 +11,7 @@ export interface Workspace {
     slug: string;
     currency: string;
     timezone: string;
+    payment_terms_days: number;
 }
 
 export interface PortalApp {

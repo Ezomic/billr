@@ -13,6 +13,7 @@ const form = useForm({
     name: props.workspace.name,
     currency: props.workspace.currency,
     timezone: props.workspace.timezone,
+    payment_terms_days: String(props.workspace.payment_terms_days ?? 30),
 })
 
 const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD']
@@ -44,6 +45,12 @@ const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD']
                     <Label for="timezone">Timezone</Label>
                     <Input id="timezone" v-model="form.timezone" placeholder="UTC" />
                     <p v-if="form.errors.timezone" class="text-destructive text-xs">{{ form.errors.timezone }}</p>
+                </div>
+                <div class="space-y-1">
+                    <Label for="terms">Default payment terms (days)</Label>
+                    <Input id="terms" v-model="form.payment_terms_days" type="number" min="0" max="365" />
+                    <p class="text-muted-foreground text-xs">Used for a client with no override of its own.</p>
+                    <p v-if="form.errors.payment_terms_days" class="text-destructive text-xs">{{ form.errors.payment_terms_days }}</p>
                 </div>
                 <Button type="submit" :disabled="form.processing">Save changes</Button>
             </form>

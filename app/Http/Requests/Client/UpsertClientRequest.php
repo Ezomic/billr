@@ -21,6 +21,7 @@ class UpsertClientRequest extends FormRequest
             'country' => ['nullable', 'string', 'size:2'],
             'vat_number' => ['nullable', 'string', 'max:50'],
             'currency' => ['nullable', 'string', 'size:3'],
+            'payment_terms_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ];
     }
 }
