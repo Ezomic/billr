@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'owner_id', 'currency', 'timezone', 'require_client_approval'])]
+#[Fillable(['name', 'slug', 'owner_id', 'currency', 'payment_terms_days', 'timezone', 'require_client_approval'])]
 class Workspace extends Model
 {
     protected function casts(): array

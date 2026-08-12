@@ -9,6 +9,7 @@ use App\Models\Invoice;
 use App\Models\Project;
 use App\Models\TimeEntry;
 use App\Models\User;
+use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class CreateInvoiceFromTimeEntries
 {
+    private const DEFAULT_PAYMENT_TERMS_DAYS = 30;
+
     /**
      * @param  Collection<int, int>  $timeEntryIds
      * @param  Collection<int, int>|null  $fixedPriceProjectIds
@@ -69,7 +72,7 @@ class CreateInvoiceFromTimeEntries
             'currency' => $client->currency ?? $workspace->currency,
             'tax_rate' => $taxRate,
             'issued_at' => today(),
-            'due_at' => today()->addDays(30),
+            'due_at' => today()->addDays($this->paymentTermsDays($client, $workspace)),
         ]);
 
         $sort = 0;
@@ -150,6 +153,13 @@ class CreateInvoiceFromTimeEntries
             ->whereNotNull('fixed_price')
             ->whereDoesntHave('invoices')
             ->get();
+    }
+
+    private function paymentTermsDays(Client $client, Workspace $workspace): int
+    {
+        return $client->payment_terms_days
+            ?? $workspace->payment_terms_days
+            ?? self::DEFAULT_PAYMENT_TERMS_DAYS;
     }
 
     // Counting rows would skip soft-deleted invoices while their numbers stay in

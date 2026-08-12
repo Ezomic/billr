@@ -33,12 +33,14 @@ class WorkspaceController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'currency' => ['required', 'string', 'size:3'],
             'timezone' => ['required', 'string', 'timezone:all'],
+            'payment_terms_days' => ['required', 'integer', 'min:0', 'max:365'],
         ]);
 
         $workspace->update([
             'name' => $request->string('name')->toString(),
             'currency' => $request->string('currency')->toString(),
             'timezone' => $request->string('timezone')->toString(),
+            'payment_terms_days' => $request->integer('payment_terms_days'),
         ]);
 
         return back()->with('success', 'Workspace updated.');

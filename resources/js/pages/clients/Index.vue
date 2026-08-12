@@ -18,6 +18,9 @@ interface Client {
     phone: string | null
     city: string | null
     country: string | null
+    vat_number: string | null
+    currency: string | null
+    payment_terms_days: number | null
     projects_count: number
     invoices_count: number
 }
@@ -37,6 +40,7 @@ const form = useForm({
     country: '',
     vat_number: '',
     currency: '',
+    payment_terms_days: '',
 })
 
 function openCreate() {
@@ -52,6 +56,9 @@ function openEdit(client: Client) {
     form.phone = client.phone ?? ''
     form.city = client.city ?? ''
     form.country = client.country ?? ''
+    form.vat_number = client.vat_number ?? ''
+    form.currency = client.currency ?? ''
+    form.payment_terms_days = client.payment_terms_days ? String(client.payment_terms_days) : ''
     showDialog.value = true
 }
 
@@ -161,6 +168,11 @@ function destroy(client: Client) {
                         <div class="space-y-1">
                             <Label for="currency">Currency override</Label>
                             <Input id="currency" v-model="form.currency" maxlength="3" placeholder="EUR" />
+                        </div>
+                        <div class="space-y-1">
+                            <Label for="terms">Payment terms override (days)</Label>
+                            <Input id="terms" v-model="form.payment_terms_days" type="number" min="0" max="365" placeholder="Workspace default" />
+                            <p v-if="form.errors.payment_terms_days" class="text-destructive text-xs">{{ form.errors.payment_terms_days }}</p>
                         </div>
                     </div>
                     <DialogFooter>
