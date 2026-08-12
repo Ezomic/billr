@@ -58,7 +58,7 @@ it('can list invoices', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('invoices/Index')
-            ->has('invoices', 1)
+            ->has('invoices.data', 1)
         );
 });
 

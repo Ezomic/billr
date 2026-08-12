@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import Pagination from '@/components/Pagination.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,7 +26,7 @@ interface TimeEntry {
 }
 
 const props = defineProps<{
-    entries: { data: TimeEntry[] }
+    entries: { data: TimeEntry[]; current_page: number; last_page: number; from: number | null; to: number | null; total: number; prev_page_url: string | null; next_page_url: string | null }
     projects: Project[]
     running: TimeEntry | null
 }>()
@@ -231,6 +232,8 @@ function formatDate(iso: string) {
                     </TableRow>
                 </TableBody>
             </Table>
+
+            <Pagination :paginator="entries" label="entries" />
         </div>
 
         <!-- Manual entry dialog -->
