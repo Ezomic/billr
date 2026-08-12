@@ -183,6 +183,28 @@ class InvoiceController extends Controller
         return response()->json($projects);
     }
 
+    public function update(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_unless($invoice->status === 'draft', 422, 'Only a draft invoice can be edited.');
+
+        $request->validate([
+            'notes' => ['nullable', 'string', 'max:2000'],
+            'issued_at' => ['required', 'date'],
+            'due_at' => ['required', 'date', 'after_or_equal:issued_at'],
+        ]);
+
+        $notes = $request->input('notes');
+
+        $invoice->update([
+            'notes' => is_string($notes) && trim($notes) !== '' ? $notes : null,
+            'issued_at' => $request->date('issued_at'),
+            'due_at' => $request->date('due_at'),
+        ]);
+
+        return back()->with('success', 'Invoice updated.');
+    }
+
     public function storeLine(Request $request, Invoice $invoice): RedirectResponse
     {
         $this->authorizeInvoice($invoice);

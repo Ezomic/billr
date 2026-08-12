@@ -45,6 +45,16 @@ const isDraft = computed(() => props.invoice.status === 'draft')
 
 const lineForm = useForm({ description: '', quantity: '1', unitPrice: '' })
 
+const detailsForm = useForm({
+    notes: props.invoice.notes ?? '',
+    issued_at: props.invoice.issued_at?.slice(0, 10) ?? '',
+    due_at: props.invoice.due_at?.slice(0, 10) ?? '',
+})
+
+function saveDetails() {
+    detailsForm.put(route('invoices.update', props.invoice.id), { preserveScroll: true })
+}
+
 const canAddLine = computed(() =>
     lineForm.description.trim() !== '' &&
     Number(lineForm.quantity) >= 1 &&
@@ -273,9 +283,38 @@ function destroy() {
                     </div>
                 </div>
 
-                <div v-if="invoice.notes" class="text-sm text-muted-foreground border-t pt-4">
+                <div v-if="invoice.notes && !isDraft" class="text-sm text-muted-foreground border-t pt-4">
                     {{ invoice.notes }}
                 </div>
+
+                <!-- Details editor, drafts only -->
+                <form v-if="isDraft" class="border-t pt-4 space-y-3" @submit.prevent="saveDetails">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <Label class="text-xs">Issue date</Label>
+                            <Input v-model="detailsForm.issued_at" type="date" />
+                            <p v-if="detailsForm.errors.issued_at" class="text-destructive text-xs">{{ detailsForm.errors.issued_at }}</p>
+                        </div>
+                        <div class="space-y-1">
+                            <Label class="text-xs">Due date</Label>
+                            <Input v-model="detailsForm.due_at" type="date" />
+                            <p v-if="detailsForm.errors.due_at" class="text-destructive text-xs">{{ detailsForm.errors.due_at }}</p>
+                        </div>
+                    </div>
+                    <div class="space-y-1">
+                        <Label class="text-xs">Notes</Label>
+                        <textarea
+                            v-model="detailsForm.notes"
+                            rows="3"
+                            placeholder="Payment details, a thank you, terms…"
+                            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                        />
+                        <p v-if="detailsForm.errors.notes" class="text-destructive text-xs">{{ detailsForm.errors.notes }}</p>
+                    </div>
+                    <Button type="submit" variant="outline" size="sm" :disabled="detailsForm.processing">
+                        Save details
+                    </Button>
+                </form>
 
                 <div v-if="paymentLink" class="border-t pt-4 flex items-center gap-2">
                     <a :href="paymentLink" target="_blank" rel="noopener" class="text-sm text-primary underline truncate flex-1">{{ paymentLink }}</a>
