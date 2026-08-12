@@ -27,15 +27,35 @@ class InvoiceController extends Controller
 {
     use InteractsWithCurrentUser;
 
-    public function index(): Response
+    /** @var list<string> */
+    private const STATUSES = ['draft', 'sent', 'paid', 'overdue', 'void'];
+
+    public function index(Request $request): Response
     {
-        $invoices = $this->currentUser()->requireCurrentWorkspace()->invoices()
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
+
+        $status = $request->string('status')->toString();
+        $clientId = $request->integer('client_id');
+        $search = trim($request->string('q')->toString());
+
+        $invoices = $workspace->invoices()
             ->with('client:id,name')
+            ->when(in_array($status, self::STATUSES, true), fn ($q) => $q->where('status', $status))
+            ->when($clientId > 0, fn ($q) => $q->where('client_id', $clientId))
+            ->when($search !== '', fn ($q) => $q->where('number', 'like', '%'.$search.'%'))
             ->orderByDesc('created_at')
-            ->get();
+            ->paginate(25)
+            ->withQueryString();
 
         return Inertia::render('invoices/Index', [
             'invoices' => $invoices,
+            'clients' => $workspace->clients()->orderBy('name')->get(['id', 'name']),
+            'statuses' => self::STATUSES,
+            'filters' => [
+                'status' => in_array($status, self::STATUSES, true) ? $status : '',
+                'client_id' => $clientId > 0 ? (string) $clientId : '',
+                'q' => $search,
+            ],
         ]);
     }
 

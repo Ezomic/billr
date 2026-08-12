@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3'
+import { computed, reactive, watch } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmpty } from '@/components/ui/table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, MoreHorizontal, Eye, CheckCheck, Send, Trash2 } from 'lucide-vue-next'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import Pagination from '@/components/Pagination.vue'
+import { Plus, MoreHorizontal, Eye, CheckCheck, Send, Trash2, X } from 'lucide-vue-next'
 import { useForm } from '@inertiajs/vue3'
 
 interface Invoice {
@@ -20,7 +24,51 @@ interface Invoice {
     client: { id: number; name: string }
 }
 
-defineProps<{ invoices: Invoice[] }>()
+interface Paginator {
+    data: Invoice[]
+    current_page: number
+    last_page: number
+    from: number | null
+    to: number | null
+    total: number
+    prev_page_url: string | null
+    next_page_url: string | null
+}
+
+const props = defineProps<{
+    invoices: Paginator
+    clients: { id: number; name: string }[]
+    statuses: string[]
+    filters: { status: string; client_id: string; q: string }
+}>()
+
+const filters = reactive({ ...props.filters })
+
+// Server-side filtering, so the query string is the source of truth and a
+// filtered list stays linkable and survives a refresh.
+function applyFilters() {
+    router.get(route('invoices.index'), {
+        status: filters.status || undefined,
+        client_id: filters.client_id || undefined,
+        q: filters.q || undefined,
+    }, { preserveState: true, replace: true })
+}
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+watch(() => filters.q, () => {
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(applyFilters, 300)
+})
+
+watch([() => filters.status, () => filters.client_id], applyFilters)
+
+const hasFilters = computed(() => !!(filters.status || filters.client_id || filters.q))
+
+function clearFilters() {
+    filters.status = ''
+    filters.client_id = ''
+    filters.q = ''
+}
 
 function formatMoney(cents: number, currency: string) {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100)
@@ -54,6 +102,25 @@ function destroy(invoice: Invoice) {
                 </Button>
             </PageHeader>
 
+            <div class="flex flex-wrap items-center gap-2">
+                <Input v-model="filters.q" placeholder="Search invoice number…" class="max-w-56" />
+                <Select v-model="filters.status">
+                    <SelectTrigger class="w-40"><SelectValue placeholder="Any status" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="s in statuses" :key="s" :value="s" class="capitalize">{{ s }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select v-model="filters.client_id">
+                    <SelectTrigger class="w-48"><SelectValue placeholder="Any client" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="c in clients" :key="c.id" :value="String(c.id)">{{ c.name }}</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button v-if="hasFilters" variant="ghost" size="sm" @click="clearFilters">
+                    <X class="size-4" /> Clear
+                </Button>
+            </div>
+
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -67,8 +134,8 @@ function destroy(invoice: Invoice) {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableEmpty v-if="!invoices.length" :colspan="7" text="No invoices yet. Create your first one." />
-                    <TableRow v-for="inv in invoices" :key="inv.id" class="cursor-pointer" @click="router.visit(route('invoices.show', inv.id))">
+                    <TableEmpty v-if="!invoices.data.length" :colspan="7" :text="hasFilters ? 'No invoices match these filters.' : 'No invoices yet. Create your first one.'" />
+                    <TableRow v-for="inv in invoices.data" :key="inv.id" class="cursor-pointer" @click="router.visit(route('invoices.show', inv.id))">
                         <TableCell class="font-mono font-medium">{{ inv.number }}</TableCell>
                         <TableCell>{{ inv.client.name }}</TableCell>
                         <TableCell><StatusBadge :status="inv.status" /></TableCell>
@@ -103,6 +170,8 @@ function destroy(invoice: Invoice) {
                     </TableRow>
                 </TableBody>
             </Table>
+
+            <Pagination :paginator="invoices" label="invoices" />
         </div>
     </AppLayout>
 </template>
