@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-vue-next'
+import { Archive, ArchiveRestore, Plus, MoreHorizontal, Pencil, Trash2 } from 'lucide-vue-next'
 
 interface Client { id: number; name: string }
 interface Project {
@@ -73,6 +73,14 @@ function submit() {
     }
 }
 
+function archive(p: Project) {
+    useForm({}).post(route('projects.archive', p.id), { preserveScroll: true })
+}
+
+function unarchive(p: Project) {
+    useForm({}).post(route('projects.unarchive', p.id), { preserveScroll: true })
+}
+
 function destroy(p: Project) {
     if (!confirm(`Delete "${p.name}"?`)) return
     useForm({}).delete(route('projects.destroy', p.id))
@@ -132,6 +140,12 @@ function formatRate(p: Project) {
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem @click="openEdit(p)" class="gap-2">
                                         <Pencil class="size-4" /> Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem v-if="p.status === 'active'" @click="archive(p)" class="gap-2">
+                                        <Archive class="size-4" /> Archive
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem v-else @click="unarchive(p)" class="gap-2">
+                                        <ArchiveRestore class="size-4" /> Restore
                                     </DropdownMenuItem>
                                     <DropdownMenuItem @click="destroy(p)" class="text-destructive focus:text-destructive gap-2">
                                         <Trash2 class="size-4" /> Delete

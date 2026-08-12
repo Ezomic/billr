@@ -57,6 +57,24 @@ class ProjectController extends Controller
         return back()->with('success', 'Project updated.');
     }
 
+    public function archive(Project $project): RedirectResponse
+    {
+        $this->authorizeProject($project);
+
+        $project->update(['status' => 'archived']);
+
+        return back()->with('success', 'Project archived.');
+    }
+
+    public function unarchive(Project $project): RedirectResponse
+    {
+        $this->authorizeProject($project);
+
+        $project->update(['status' => 'active']);
+
+        return back()->with('success', 'Project restored.');
+    }
+
     public function destroy(Project $project): RedirectResponse
     {
         $this->authorizeProject($project);
