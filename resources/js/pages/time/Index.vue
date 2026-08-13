@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useForm, router, usePage } from '@inertiajs/vue3'
+import type { SharedProps } from '@/types'
 import AppLayout from '@/layouts/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Pagination from '@/components/Pagination.vue'
@@ -23,13 +24,29 @@ interface TimeEntry {
     duration_minutes: number | null
     billable: boolean
     project: { id: number; name: string; client: { name: string } }
+    user?: { id: number; name: string }
 }
+
+const page = usePage<SharedProps>()
 
 const props = defineProps<{
     entries: { data: TimeEntry[]; current_page: number; last_page: number; from: number | null; to: number | null; total: number; prev_page_url: string | null; next_page_url: string | null }
     projects: Project[]
     running: TimeEntry | null
+    isOwner: boolean
+    members: { id: number; name: string }[]
+    filters: { user_id: string }
 }>()
+
+const viewedUser = ref(props.filters.user_id)
+
+watch(viewedUser, (value) => {
+    router.get(route('time.index'), { user_id: value }, { preserveState: true, replace: true })
+})
+
+// Only meaningful for an owner looking at somebody else's entries: editing and
+// deleting stay with whoever logged the time.
+const isMine = (entry: TimeEntry) => !entry.user || entry.user.id === page.props.auth.user.id
 
 // Live timer
 const elapsed = ref(0)
@@ -139,6 +156,13 @@ function formatDate(iso: string) {
         <div class="p-6 md:p-8 space-y-6">
             <PageHeader title="Time tracking" description="Log and manage your time entries.">
                 <div class="flex items-center gap-2">
+                    <Select v-if="isOwner" v-model="viewedUser">
+                        <SelectTrigger class="w-44"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Everyone</SelectItem>
+                            <SelectItem v-for="m in members" :key="m.id" :value="String(m.id)">{{ m.name }}</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <Button variant="outline" as="a" :href="route('time.export')">
                         <Download class="size-4" /> Export CSV
                     </Button>
@@ -210,7 +234,12 @@ function formatDate(iso: string) {
                             <span class="text-muted-foreground text-xs">{{ entry.project.client.name }} /</span>
                             {{ entry.project.name }}
                         </TableCell>
-                        <TableCell class="text-muted-foreground">{{ entry.description ?? '—' }}</TableCell>
+                        <TableCell class="text-muted-foreground">
+                            {{ entry.description ?? '—' }}
+                            <span v-if="isOwner && entry.user && !isMine(entry)" class="text-muted-foreground/70 ml-1 text-xs">
+                                · {{ entry.user.name }}
+                            </span>
+                        </TableCell>
                         <TableCell class="font-mono">{{ formatDuration(entry.duration_minutes) }}</TableCell>
                         <TableCell>
                             <Badge :variant="entry.billable ? 'default' : 'outline'">
@@ -225,11 +254,14 @@ function formatDate(iso: string) {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem @click="openEdit(entry)" class="gap-2">
+                                    <DropdownMenuItem v-if="isMine(entry)" @click="openEdit(entry)" class="gap-2">
                                         <Pencil class="size-4" /> Edit
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem @click="destroy(entry)" class="text-destructive focus:text-destructive gap-2">
+                                    <DropdownMenuItem v-if="isMine(entry)" @click="destroy(entry)" class="text-destructive focus:text-destructive gap-2">
                                         <Trash2 class="size-4" /> Delete
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem v-else disabled class="gap-2">
+                                        Logged by {{ entry.user?.name }}
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>

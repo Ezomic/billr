@@ -12,6 +12,7 @@ use App\Services\CsvExporter;
 use Generator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,17 +22,21 @@ class TimeEntryController extends Controller
 {
     use InteractsWithCurrentUser;
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $user = $this->currentUser();
         $workspace = $user->requireCurrentWorkspace();
 
+        $isOwner = $workspace->owner_id === $user->id;
+        $viewingUserId = $this->resolveViewedUserId($request, $isOwner);
+
         $entries = TimeEntry::query()
-            ->where('user_id', $user->id)
+            ->when($viewingUserId !== null, fn ($q) => $q->where('user_id', $viewingUserId))
             ->whereHas('project', fn ($q) => $q->where('workspace_id', $workspace->id))
-            ->with('project:id,name,client_id', 'project.client:id,name')
+            ->with('project:id,name,client_id', 'project.client:id,name', 'user:id,name')
             ->orderByDesc('started_at')
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString();
 
         $projects = $workspace->projects()
             ->where('status', 'active')
@@ -48,7 +53,44 @@ class TimeEntryController extends Controller
             'entries' => $entries,
             'projects' => $projects,
             'running' => $running,
+            'isOwner' => $isOwner,
+            'members' => $isOwner
+                ? $workspace->members()->orderBy('name')->get(['users.id', 'users.name'])
+                : [],
+            'filters' => [
+                'user_id' => $viewingUserId === null ? 'all' : (string) $viewingUserId,
+            ],
         ]);
+    }
+
+    /**
+     * Null means every member. Only an owner may widen past their own entries,
+     * and only to a member of the workspace they own.
+     */
+    private function resolveViewedUserId(Request $request, bool $isOwner): ?int
+    {
+        $user = $this->currentUser();
+
+        if (! $isOwner) {
+            return $user->id;
+        }
+
+        $requested = $request->string('user_id')->toString();
+
+        if ($requested === 'all') {
+            return null;
+        }
+
+        if ($requested === '') {
+            return $user->id;
+        }
+
+        $workspace = $user->requireCurrentWorkspace();
+        $memberId = (int) $requested;
+
+        return $workspace->members()->where('users.id', $memberId)->exists()
+            ? $memberId
+            : $user->id;
     }
 
     public function export(CsvExporter $csv): StreamedResponse
