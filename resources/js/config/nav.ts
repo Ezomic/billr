@@ -4,6 +4,7 @@ import {
     FolderKanban,
     Clock,
     FileText,
+    Repeat,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -19,4 +20,5 @@ export const navItems: NavItem[] = [
     { label: 'Projects', route: 'projects.index', icon: FolderKanban },
     { label: 'Time', route: 'time.index', icon: Clock },
     { label: 'Invoices', route: 'invoices.index', icon: FileText },
+    { label: 'Recurring', route: 'recurring.index', icon: Repeat },
 ]
