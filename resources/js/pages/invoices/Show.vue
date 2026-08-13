@@ -36,12 +36,15 @@ interface Invoice {
     client: { name: string; email: string | null; address: string | null; city: string | null; country: string | null; vat_number: string | null }
     lines: InvoiceLine[]
     created_by: { name: string }
+    reminders: { id: number; days_overdue: number; sent_to: string; sent_at: string }[]
 }
 
 const props = defineProps<{ invoice: Invoice }>()
 
 const isSettled = computed(() => props.invoice.status === 'paid' || props.invoice.status === 'void')
 const isDraft = computed(() => props.invoice.status === 'draft')
+
+const lastReminder = computed(() => props.invoice.reminders?.at(-1) ?? null)
 
 const lineForm = useForm({ description: '', quantity: '1', unitPrice: '' })
 
@@ -159,6 +162,9 @@ function destroy() {
                 </Button>
                 <div class="flex items-center gap-2">
                     <StatusBadge :status="invoice.status" />
+                    <span v-if="lastReminder" class="text-muted-foreground text-xs">
+                        Reminded {{ formatDate(lastReminder.sent_at) }}
+                    </span>
                     <Button variant="outline" size="sm" as="a" :href="route('invoices.pdf', invoice.id)">
                         <Download class="size-4" /> PDF
                     </Button>

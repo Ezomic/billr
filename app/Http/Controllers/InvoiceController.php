@@ -104,7 +104,7 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
 
-        $invoice->load('client', 'lines', 'createdBy:id,name', 'timeEntries.project:id,name');
+        $invoice->load('client', 'lines', 'createdBy:id,name', 'timeEntries.project:id,name', 'reminders');
 
         return Inertia::render('invoices/Show', [
             'invoice' => $invoice,

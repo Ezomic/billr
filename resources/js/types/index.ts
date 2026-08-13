@@ -12,6 +12,7 @@ export interface Workspace {
     currency: string;
     timezone: string;
     payment_terms_days: number;
+    send_payment_reminders: boolean;
 }
 
 export interface PortalApp {

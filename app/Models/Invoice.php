@@ -56,6 +56,12 @@ class Invoice extends Model
         return $this->belongsToMany(TimeEntry::class, 'invoice_time_entries');
     }
 
+    /** @return HasMany<InvoiceReminder, $this> */
+    public function reminders(): HasMany
+    {
+        return $this->hasMany(InvoiceReminder::class);
+    }
+
     /** @return BelongsToMany<Project, $this> */
     public function projects(): BelongsToMany
     {
