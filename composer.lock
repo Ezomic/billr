@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b092b3111d2396adb48458a166824a39",
+    "content-hash": "bb032c5257cd3182b719358cd379ad67",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -6946,16 +6946,16 @@
         },
         {
             "name": "thijssensoftware/flare-client",
-            "version": "0.3.1",
+            "version": "0.3.3",
             "source": {
                 "type": "git",
                 "url": "git@github.com:Ezomic/flare-client.git",
-                "reference": "16cd9d5ff88f65a1f863a8317c06fca59d3bc253"
+                "reference": "954514868c61b3c389601bc1532735fbe618b577"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Ezomic/flare-client/zipball/16cd9d5ff88f65a1f863a8317c06fca59d3bc253",
-                "reference": "16cd9d5ff88f65a1f863a8317c06fca59d3bc253",
+                "url": "https://api.github.com/repos/Ezomic/flare-client/zipball/954514868c61b3c389601bc1532735fbe618b577",
+                "reference": "954514868c61b3c389601bc1532735fbe618b577",
                 "shasum": ""
             },
             "require": {
@@ -7016,7 +7016,7 @@
                 "proprietary"
             ],
             "description": "Reports exceptions, failed jobs and failed scheduled tasks to flare.",
-            "time": "2026-08-13T00:06:16+00:00"
+            "time": "2026-08-13T03:13:08+00:00"
         },
         {
             "name": "thijssensoftware/id-client",
