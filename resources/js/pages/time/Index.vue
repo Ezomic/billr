@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableEmp
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Play, Square, Plus, MoreHorizontal, Pencil, Trash2, Timer } from 'lucide-vue-next'
+import { Play, Square, Plus, MoreHorizontal, Pencil, Trash2, Timer, Download } from 'lucide-vue-next'
 
 interface Project { id: number; name: string; client: { name: string }; hourly_rate: number | null }
 interface TimeEntry {
@@ -138,9 +138,14 @@ function formatDate(iso: string) {
     <AppLayout title="Time">
         <div class="p-6 md:p-8 space-y-6">
             <PageHeader title="Time tracking" description="Log and manage your time entries.">
-                <Button variant="outline" @click="openManual">
-                    <Plus class="size-4" /> Manual entry
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button variant="outline" as="a" :href="route('time.export')">
+                        <Download class="size-4" /> Export CSV
+                    </Button>
+                    <Button variant="outline" @click="openManual">
+                        <Plus class="size-4" /> Manual entry
+                    </Button>
+                </div>
             </PageHeader>
 
             <!-- Timer card -->

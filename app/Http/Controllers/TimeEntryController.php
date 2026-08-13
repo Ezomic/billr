@@ -8,10 +8,14 @@ use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Requests\TimeEntry\StoreTimeEntryRequest;
 use App\Models\Project;
 use App\Models\TimeEntry;
+use App\Services\CsvExporter;
+use Generator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TimeEntryController extends Controller
 {
@@ -45,6 +49,53 @@ class TimeEntryController extends Controller
             'projects' => $projects,
             'running' => $running,
         ]);
+    }
+
+    public function export(CsvExporter $csv): StreamedResponse
+    {
+        $user = $this->currentUser();
+        $workspace = $user->requireCurrentWorkspace();
+
+        $entries = TimeEntry::query()
+            ->where('user_id', $user->id)
+            ->whereHas('project', fn ($q) => $q->where('workspace_id', $workspace->id))
+            ->with('project:id,name,client_id,hourly_rate', 'project.client:id,name', 'invoices:id,number')
+            ->orderByDesc('started_at');
+
+        return $csv->stream(
+            $csv->filename('time-entries'),
+            ['Date', 'Client', 'Project', 'Description', 'Minutes', 'Hours', 'Rate', 'Amount', 'Billable', 'Billed', 'Invoice'],
+            $this->timeEntryRows($entries, $csv),
+        );
+    }
+
+    /**
+     * @param  Builder<TimeEntry>  $entries
+     * @return Generator<int, list<string|int|null>>
+     */
+    private function timeEntryRows(Builder $entries, CsvExporter $csv): Generator
+    {
+        foreach ($entries->lazy() as $entry) {
+            $project = $entry->project;
+            $minutes = $entry->duration_minutes ?? 0;
+            $projectRate = $project !== null ? $project->hourly_rate : null;
+            $rate = $entry->hourly_rate ?? $projectRate ?? 0;
+            $invoice = $entry->invoices->first();
+
+            yield [
+                $entry->started_at->toDateString(),
+                $project?->client?->name,
+                $project?->name,
+                $entry->description,
+                $minutes,
+                number_format($minutes / 60, 2, '.', ''),
+                $csv->money($rate),
+                $csv->money((int) round(($minutes / 60) * $rate)),
+                $entry->billable ? 'yes' : 'no',
+                $invoice ? 'yes' : 'no',
+                $invoice?->number,
+            ];
+        }
     }
 
     public function store(StoreTimeEntryRequest $request): RedirectResponse

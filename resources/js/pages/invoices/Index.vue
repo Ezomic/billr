@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Pagination from '@/components/Pagination.vue'
-import { Plus, MoreHorizontal, Eye, CheckCheck, Send, Trash2, X } from 'lucide-vue-next'
+import { Plus, MoreHorizontal, Eye, CheckCheck, Send, Trash2, X, Download } from 'lucide-vue-next'
 import { useForm } from '@inertiajs/vue3'
 
 interface Invoice {
@@ -64,6 +64,16 @@ watch([() => filters.status, () => filters.client_id], applyFilters)
 
 const hasFilters = computed(() => !!(filters.status || filters.client_id || filters.q))
 
+// The export mirrors whatever is on screen, so it carries the same filters.
+const exportUrl = computed(() => {
+    const params = new URLSearchParams()
+    if (filters.status) params.set('status', filters.status)
+    if (filters.client_id) params.set('client_id', filters.client_id)
+    if (filters.q) params.set('q', filters.q)
+    const qs = params.toString()
+    return route('invoices.export') + (qs ? `?${qs}` : '')
+})
+
 function clearFilters() {
     filters.status = ''
     filters.client_id = ''
@@ -97,9 +107,14 @@ function destroy(invoice: Invoice) {
     <AppLayout title="Invoices">
         <div class="p-6 md:p-8 space-y-6">
             <PageHeader title="Invoices" description="Create and track invoices for your clients.">
-                <Button :href="route('invoices.create')" as="a">
-                    <Plus class="size-4" /> New invoice
-                </Button>
+                <div class="flex items-center gap-2">
+                    <Button variant="outline" as="a" :href="exportUrl">
+                        <Download class="size-4" /> Export CSV
+                    </Button>
+                    <Button :href="route('invoices.create')" as="a">
+                        <Plus class="size-4" /> New invoice
+                    </Button>
+                </div>
             </PageHeader>
 
             <div class="flex flex-wrap items-center gap-2">
