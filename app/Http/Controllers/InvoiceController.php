@@ -11,8 +11,11 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
 use App\Models\TimeEntry;
+use App\Services\CsvExporter;
 use App\Services\InvoicePdfRenderer;
 use App\Services\StripeService;
+use Generator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +25,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InvoiceController extends Controller
 {
@@ -38,12 +42,8 @@ class InvoiceController extends Controller
         $clientId = $request->integer('client_id');
         $search = trim($request->string('q')->toString());
 
-        $invoices = $workspace->invoices()
+        $invoices = $this->filteredInvoices($request)
             ->with('client:id,name')
-            ->when(in_array($status, self::STATUSES, true), fn ($q) => $q->where('status', $status))
-            ->when($clientId > 0, fn ($q) => $q->where('client_id', $clientId))
-            ->when($search !== '', fn ($q) => $q->where('number', 'like', '%'.$search.'%'))
-            ->orderByDesc('created_at')
             ->paginate(25)
             ->withQueryString();
 
@@ -301,6 +301,54 @@ class InvoiceController extends Controller
         $invoice->update(['stripe_payment_link' => $url]);
 
         return response()->json(['url' => $url]);
+    }
+
+    public function export(Request $request, CsvExporter $csv): StreamedResponse
+    {
+        return $csv->stream(
+            $csv->filename('invoices'),
+            ['Number', 'Client', 'Status', 'Issued', 'Due', 'Paid', 'Currency', 'Subtotal', 'Tax', 'Total'],
+            $this->invoiceRows($this->filteredInvoices($request)->with('client:id,name'), $csv),
+        );
+    }
+
+    /**
+     * @param  Builder<Invoice>  $invoices
+     * @return Generator<int, list<string|int|null>>
+     */
+    private function invoiceRows(Builder $invoices, CsvExporter $csv): Generator
+    {
+        // lazy() so a workspace with years of history streams rather than
+        // loading every invoice into memory before the first byte goes out.
+        foreach ($invoices->lazy() as $invoice) {
+            yield [
+                $invoice->number,
+                $invoice->client?->name,
+                $invoice->status,
+                $invoice->issued_at?->toDateString(),
+                $invoice->due_at?->toDateString(),
+                $invoice->paid_at?->toDateString(),
+                $invoice->currency,
+                $csv->money($invoice->subtotal),
+                $csv->money($invoice->tax_amount),
+                $csv->money($invoice->total),
+            ];
+        }
+    }
+
+    /** @return Builder<Invoice> */
+    private function filteredInvoices(Request $request): Builder
+    {
+        $status = $request->string('status')->toString();
+        $clientId = $request->integer('client_id');
+        $search = trim($request->string('q')->toString());
+
+        return Invoice::query()
+            ->where('workspace_id', $this->currentUser()->requireCurrentWorkspace()->id)
+            ->when(in_array($status, self::STATUSES, true), fn ($q) => $q->where('status', $status))
+            ->when($clientId > 0, fn ($q) => $q->where('client_id', $clientId))
+            ->when($search !== '', fn ($q) => $q->where('number', 'like', '%'.$search.'%'))
+            ->orderByDesc('created_at');
     }
 
     private function authorizeInvoice(Invoice $invoice): void

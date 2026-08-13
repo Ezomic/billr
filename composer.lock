@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d309335b1beceab5d4a951ffe1269568",
+    "content-hash": "1ab98db2f5670b915a54893902c2f20c",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -6946,16 +6946,16 @@
         },
         {
             "name": "thijssensoftware/flare-client",
-            "version": "0.2.1",
+            "version": "0.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Ezomic/flare-client.git",
-                "reference": "0d423735110f78c62d5cdafe871a74a14427dbbe"
+                "reference": "fdff06d3483efe0d3d509e9d9c8de3f361d69cf1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Ezomic/flare-client/zipball/0d423735110f78c62d5cdafe871a74a14427dbbe",
-                "reference": "0d423735110f78c62d5cdafe871a74a14427dbbe",
+                "url": "https://api.github.com/repos/Ezomic/flare-client/zipball/fdff06d3483efe0d3d509e9d9c8de3f361d69cf1",
+                "reference": "fdff06d3483efe0d3d509e9d9c8de3f361d69cf1",
                 "shasum": ""
             },
             "require": {
@@ -7017,10 +7017,10 @@
             ],
             "description": "Reports exceptions, failed jobs and failed scheduled tasks to flare.",
             "support": {
-                "source": "https://github.com/Ezomic/flare-client/tree/0.2.1",
+                "source": "https://github.com/Ezomic/flare-client/tree/0.3.0",
                 "issues": "https://github.com/Ezomic/flare-client/issues"
             },
-            "time": "2026-08-07T20:18:27+00:00"
+            "time": "2026-08-13T00:01:34+00:00"
         },
         {
             "name": "thijssensoftware/id-client",

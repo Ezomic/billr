@@ -91,6 +91,7 @@ Route::middleware('auth')->group(function () {
 
         // Time entries
         Route::get('/time', [TimeEntryController::class, 'index'])->name('time.index');
+        Route::get('/time/export', [TimeEntryController::class, 'export'])->name('time.export');
         Route::post('/time', [TimeEntryController::class, 'store'])->name('time.store');
         Route::post('/time/start/{project}', [TimeEntryController::class, 'start'])->name('time.start');
         Route::post('/time/{entry}/stop', [TimeEntryController::class, 'stop'])->name('time.stop');
@@ -102,6 +103,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');
         Route::post('/invoices', [InvoiceController::class, 'store'])->name('invoices.store');
         // Must stay above /invoices/{invoice}, or the literal segment is swallowed by the wildcard.
+        Route::get('/invoices/export', [InvoiceController::class, 'export'])->name('invoices.export');
         Route::get('/invoices/unbilled-entries', [InvoiceController::class, 'unbilledEntries'])->name('invoices.unbilled-entries');
         Route::get('/invoices/unbilled-projects', [InvoiceController::class, 'unbilledProjects'])->name('invoices.unbilled-projects');
         Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
