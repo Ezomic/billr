@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Actions\CopyInvoice;
 use App\Actions\CreateInvoiceFromTimeEntries;
 use App\Concerns\InteractsWithCurrentUser;
 use App\Mail\InvoiceSentMail;
@@ -137,6 +138,16 @@ class InvoiceController extends Controller
         $invoice->update(['status' => 'paid', 'paid_at' => now()]);
 
         return back()->with('success', 'Invoice marked as paid.');
+    }
+
+    public function copy(Invoice $invoice, CopyInvoice $action): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+
+        $copy = $action->handle($this->currentUser(), $invoice);
+
+        return redirect()->route('invoices.show', $copy)
+            ->with('success', 'Copied to '.$copy->number.'.');
     }
 
     public function markVoid(Invoice $invoice): RedirectResponse

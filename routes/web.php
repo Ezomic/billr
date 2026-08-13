@@ -112,6 +112,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices/{invoice}/payment-link', [InvoiceController::class, 'generatePaymentLink'])->name('invoices.payment-link');
         Route::post('/invoices/{invoice}/sent', [InvoiceController::class, 'markSent'])->name('invoices.sent');
         Route::post('/invoices/{invoice}/paid', [InvoiceController::class, 'markPaid'])->name('invoices.paid');
+        Route::post('/invoices/{invoice}/copy', [InvoiceController::class, 'copy'])->name('invoices.copy');
         Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'markVoid'])->name('invoices.void');
         Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
         Route::post('/invoices/{invoice}/lines', [InvoiceController::class, 'storeLine'])->name('invoices.lines.store');

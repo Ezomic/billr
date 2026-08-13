@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Ban, Check, CheckCheck, Copy, Download, Link, Plus, Send, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, Ban, Check, CheckCheck, Copy, CopyPlus, Download, Link, Plus, Send, Trash2 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 interface InvoiceLine {
@@ -141,6 +141,10 @@ function removeLine(lineId: number) {
     useForm({}).delete(route('invoices.lines.destroy', [props.invoice.id, lineId]), { preserveScroll: true })
 }
 
+function copyInvoice() {
+    useForm({}).post(route('invoices.copy', props.invoice.id))
+}
+
 function markVoid() {
     if (!confirm(`Void invoice ${props.invoice.number}? Its time entries become billable again.`)) return
     useForm({}).post(route('invoices.void', props.invoice.id))
@@ -176,6 +180,9 @@ function destroy() {
                     </Button>
                     <Button v-if="!isSettled" variant="outline" size="sm" @click="generatePaymentLink" :disabled="generatingLink">
                         <Link class="size-4" /> {{ generatingLink ? 'Generating...' : 'Payment link' }}
+                    </Button>
+                    <Button variant="outline" size="sm" @click="copyInvoice">
+                        <CopyPlus class="size-4" /> Copy
                     </Button>
                     <Button v-if="!isSettled" variant="outline" size="sm" @click="markVoid">
                         <Ban class="size-4" /> Void

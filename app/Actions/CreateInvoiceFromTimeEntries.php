@@ -19,6 +19,10 @@ class CreateInvoiceFromTimeEntries
 {
     private const DEFAULT_PAYMENT_TERMS_DAYS = 30;
 
+    public function __construct(
+        private readonly AllocateInvoiceNumber $allocateNumber,
+    ) {}
+
     /**
      * @param  Collection<int, int>  $timeEntryIds
      * @param  Collection<int, int>|null  $fixedPriceProjectIds
@@ -67,7 +71,7 @@ class CreateInvoiceFromTimeEntries
             'workspace_id' => $workspace->id,
             'client_id' => $client->id,
             'created_by' => $user->id,
-            'number' => $this->nextInvoiceNumber($workspace->id),
+            'number' => $this->allocateNumber->handle($workspace->id),
             'status' => 'draft',
             'currency' => $client->currency ?? $workspace->currency,
             'tax_rate' => $taxRate,
@@ -160,25 +164,5 @@ class CreateInvoiceFromTimeEntries
         return $client->payment_terms_days
             ?? $workspace->payment_terms_days
             ?? self::DEFAULT_PAYMENT_TERMS_DAYS;
-    }
-
-    // Counting rows would skip soft-deleted invoices while their numbers stay in
-    // the unique index, so the sequence is read off the highest number instead.
-    private function nextInvoiceNumber(int $workspaceId): string
-    {
-        $prefix = sprintf('INV-%d-', now()->year);
-
-        $last = Invoice::withTrashed()
-            ->where('workspace_id', $workspaceId)
-            ->where('number', 'like', $prefix.'%')
-            ->orderByRaw('LENGTH(number) desc, number desc')
-            ->lockForUpdate()
-            ->value('number');
-
-        $sequence = is_string($last)
-            ? ((int) substr($last, strlen($prefix))) + 1
-            : 1;
-
-        return $prefix.str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
     }
 }
