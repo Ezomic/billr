@@ -14,6 +14,7 @@ const form = useForm({
     currency: props.workspace.currency,
     timezone: props.workspace.timezone,
     payment_terms_days: String(props.workspace.payment_terms_days ?? 30),
+    send_payment_reminders: props.workspace.send_payment_reminders ?? true,
 })
 
 const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD']
@@ -51,6 +52,15 @@ const currencies = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD']
                     <Input id="terms" v-model="form.payment_terms_days" type="number" min="0" max="365" />
                     <p class="text-muted-foreground text-xs">Used for a client with no override of its own.</p>
                     <p v-if="form.errors.payment_terms_days" class="text-destructive text-xs">{{ form.errors.payment_terms_days }}</p>
+                </div>
+                <div class="flex items-start gap-3 rounded-lg border p-3">
+                    <input id="reminders" v-model="form.send_payment_reminders" type="checkbox" class="mt-1 size-4" />
+                    <div>
+                        <Label for="reminders">Send payment reminders</Label>
+                        <p class="text-muted-foreground text-xs">
+                            Emails the client when an invoice is 3, 7 and 14 days past due.
+                        </p>
+                    </div>
                 </div>
                 <Button type="submit" :disabled="form.processing">Save changes</Button>
             </form>

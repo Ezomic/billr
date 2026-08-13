@@ -34,6 +34,7 @@ class WorkspaceController extends Controller
             'currency' => ['required', 'string', 'size:3'],
             'timezone' => ['required', 'string', 'timezone:all'],
             'payment_terms_days' => ['required', 'integer', 'min:0', 'max:365'],
+            'send_payment_reminders' => ['sometimes', 'boolean'],
         ]);
 
         $workspace->update([
@@ -41,6 +42,11 @@ class WorkspaceController extends Controller
             'currency' => $request->string('currency')->toString(),
             'timezone' => $request->string('timezone')->toString(),
             'payment_terms_days' => $request->integer('payment_terms_days'),
+            // Omitting the field leaves the setting alone rather than silently
+            // switching reminders off for a caller that never knew about it.
+            'send_payment_reminders' => $request->has('send_payment_reminders')
+                ? $request->boolean('send_payment_reminders')
+                : $workspace->send_payment_reminders,
         ]);
 
         return back()->with('success', 'Workspace updated.');
