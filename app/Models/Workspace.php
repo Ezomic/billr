@@ -46,6 +46,12 @@ class Workspace extends Model
         return $this->hasMany(Project::class);
     }
 
+    /** @return HasMany<RecurringInvoice, $this> */
+    public function recurringInvoices(): HasMany
+    {
+        return $this->hasMany(RecurringInvoice::class);
+    }
+
     /** @return HasMany<Invoice, $this> */
     public function invoices(): HasMany
     {

@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\RecurringInvoiceController;
 use App\Http\Controllers\Settings\MemberController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\WorkspaceController as SettingsWorkspaceController;
@@ -118,6 +119,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices/{invoice}/lines', [InvoiceController::class, 'storeLine'])->name('invoices.lines.store');
         Route::delete('/invoices/{invoice}/lines/{line}', [InvoiceController::class, 'destroyLine'])->name('invoices.lines.destroy');
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+
+        // Recurring invoices
+        Route::get('/recurring', [RecurringInvoiceController::class, 'index'])->name('recurring.index');
+        Route::post('/recurring', [RecurringInvoiceController::class, 'store'])->name('recurring.store');
+        Route::put('/recurring/{recurringInvoice}', [RecurringInvoiceController::class, 'update'])->name('recurring.update');
+        Route::post('/recurring/{recurringInvoice}/pause', [RecurringInvoiceController::class, 'pause'])->name('recurring.pause');
+        Route::post('/recurring/{recurringInvoice}/resume', [RecurringInvoiceController::class, 'resume'])->name('recurring.resume');
+        Route::delete('/recurring/{recurringInvoice}', [RecurringInvoiceController::class, 'destroy'])->name('recurring.destroy');
 
         // Settings
         Route::prefix('settings')->name('settings.')->group(function () {

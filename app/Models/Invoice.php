@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['workspace_id', 'client_id', 'created_by', 'number', 'status', 'currency', 'subtotal', 'tax_amount', 'total', 'tax_rate', 'notes', 'issued_at', 'due_at', 'paid_at', 'stripe_payment_link', 'stripe_session_id'])]
+#[Fillable(['workspace_id', 'client_id', 'recurring_invoice_id', 'recurring_period', 'created_by', 'number', 'status', 'currency', 'subtotal', 'tax_amount', 'total', 'tax_rate', 'notes', 'issued_at', 'due_at', 'paid_at', 'stripe_payment_link', 'stripe_session_id'])]
 class Invoice extends Model
 {
     use SoftDeletes;
@@ -22,6 +22,7 @@ class Invoice extends Model
             'issued_at' => 'date',
             'due_at' => 'date',
             'paid_at' => 'datetime',
+            'recurring_period' => 'date',
             'tax_rate' => 'decimal:2',
         ];
     }
@@ -54,6 +55,12 @@ class Invoice extends Model
     public function timeEntries(): BelongsToMany
     {
         return $this->belongsToMany(TimeEntry::class, 'invoice_time_entries');
+    }
+
+    /** @return BelongsTo<RecurringInvoice, $this> */
+    public function recurringInvoice(): BelongsTo
+    {
+        return $this->belongsTo(RecurringInvoice::class);
     }
 
     /** @return HasMany<InvoiceReminder, $this> */
