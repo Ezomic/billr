@@ -5,6 +5,7 @@ const navItems = [
     { label: 'Profile', route: 'settings.profile' },
     { label: 'Workspace', route: 'settings.workspace' },
     { label: 'Members', route: 'settings.members' },
+    { label: 'API tokens', route: 'settings.api-tokens' },
 ]
 
 function isActive(routeName: string) {
