@@ -10,6 +10,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Portal\DashboardController as PortalDashboardController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\RecurringInvoiceController;
+use App\Http\Controllers\Settings\ApiTokenController;
 use App\Http\Controllers\Settings\MemberController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\WorkspaceController as SettingsWorkspaceController;
@@ -136,6 +137,10 @@ Route::middleware('auth')->group(function () {
 
             Route::get('/workspace', [SettingsWorkspaceController::class, 'show'])->name('workspace');
             Route::put('/workspace', [SettingsWorkspaceController::class, 'update'])->name('workspace.update');
+
+            Route::get('/api-tokens', [ApiTokenController::class, 'show'])->name('api-tokens');
+            Route::post('/api-tokens', [ApiTokenController::class, 'store'])->name('api-tokens.store');
+            Route::delete('/api-tokens/{token}', [ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
 
             Route::get('/members', [MemberController::class, 'show'])->name('members');
             Route::post('/members/invite', [MemberController::class, 'invite'])->name('members.invite');
