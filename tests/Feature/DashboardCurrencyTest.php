@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Models\Client;
 use App\Models\Invoice;
+use App\Models\Project;
+use App\Models\TimeEntry;
 use App\Models\User;
 use App\Models\Workspace;
 
@@ -151,5 +153,89 @@ it('never counts another workspace money', function () {
         ->assertInertia(fn ($page) => $page
             ->has('outstanding', 1)
             ->where('outstanding.0', ['currency' => 'EUR', 'total' => 100000])
+        );
+});
+
+it('reports unbilled time as money not yet invoiced', function () {
+    $client = Client::create([
+        'workspace_id' => $this->workspace->id,
+        'name' => 'Acme',
+        'currency' => 'EUR',
+    ]);
+    $project = Project::create([
+        'workspace_id' => $this->workspace->id,
+        'client_id' => $client->id,
+        'name' => 'Website',
+        'status' => 'active',
+        'type' => 'hourly',
+        'hourly_rate' => 10000,
+    ]);
+
+    $unbilled = TimeEntry::create([
+        'project_id' => $project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHours(2),
+        'stopped_at' => now()->subHour(),
+        'duration_minutes' => 60,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $billed = TimeEntry::create([
+        'project_id' => $project->id,
+        'user_id' => $this->user->id,
+        'started_at' => now()->subHours(4),
+        'stopped_at' => now()->subHours(3),
+        'duration_minutes' => 120,
+        'hourly_rate' => 10000,
+        'billable' => true,
+    ]);
+
+    $invoice = ($this->invoice)('EUR', 20000, 'sent');
+    $invoice->timeEntries()->attach($billed->id);
+
+    $this->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page
+            ->where('unbilled.minutes', 60)
+            ->where('unbilled.amount', 10000)
+        );
+});
+
+it('lists the overdue invoices rather than only counting them', function () {
+    $overdue = ($this->invoice)('EUR', 50000, 'overdue');
+    $overdue->update(['due_at' => today()->subDays(9)]);
+
+    ($this->invoice)('EUR', 10000, 'sent');
+
+    $this->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page
+            ->has('overdueInvoices', 1)
+            ->where('overdueInvoices.0.number', $overdue->number)
+            ->where('overdueInvoices.0.balance', 50000)
+            ->where('overdueInvoices.0.days_overdue', 9)
+        );
+});
+
+it('shows the overdue balance net of a partial payment', function () {
+    $overdue = ($this->invoice)('EUR', 50000, 'overdue');
+    $overdue->update(['due_at' => today()->subDays(3)]);
+    $overdue->payments()->create([
+        'amount' => 20000,
+        'paid_on' => today(),
+        'method' => 'bank',
+    ]);
+
+    $this->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page->where('overdueInvoices.0.balance', 30000));
+});
+
+it('builds twelve months of revenue in the workspace currency only', function () {
+    ($this->invoice)('EUR', 100000, 'paid', now()->toDateTimeString());
+    ($this->invoice)('USD', 500000, 'paid', now()->toDateTimeString());
+
+    $this->get(route('dashboard'))
+        ->assertInertia(fn ($page) => $page
+            ->has('revenueByMonth', 12)
+            ->where('revenueByMonth.11', ['month' => now()->format('Y-m'), 'total' => 100000])
         );
 });
