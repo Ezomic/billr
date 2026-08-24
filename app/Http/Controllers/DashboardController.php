@@ -14,9 +14,7 @@ class DashboardController extends Controller
 
     public function __invoke(): Response
     {
-        $workspace = $this->currentUser()->currentWorkspace;
-
-        abort_unless($workspace !== null, 403);
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
 
         $base = $workspace->invoices();
 

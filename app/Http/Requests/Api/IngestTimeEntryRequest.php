@@ -29,7 +29,7 @@ class IngestTimeEntryRequest extends FormRequest
             'billr_project_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('projects', 'id')->where('workspace_id', $this->currentUser()->currentWorkspace?->id),
+                Rule::exists('projects', 'id')->where('workspace_id', $this->currentUser()->usableCurrentWorkspace()?->id),
             ],
             'client_name' => ['required_without:billr_project_id', 'string', 'max:255'],
             'project_name' => ['required_without:billr_project_id', 'string', 'max:255'],

@@ -53,16 +53,46 @@ class User extends Authenticatable
      * access-workspace gate only checks isFreelancer(), so a freelancer who
      * has not accepted an invitation yet can still reach those routes; this
      * fails with a named exception rather than reading a property on null.
+     *
+     * Membership is re-checked here rather than trusted from the column.
+     * Removing someone from a workspace leaves current_workspace_id pointing
+     * at it, so without this check a removed member keeps full access.
      */
     public function requireCurrentWorkspace(): Workspace
     {
-        $workspace = $this->currentWorkspace;
+        $workspace = $this->usableCurrentWorkspace();
 
         if ($workspace === null) {
             throw new MissingWorkspaceException($this);
         }
 
         return $workspace;
+    }
+
+    /**
+     * The current workspace, but only if the user is still a member of it.
+     * Every path that resolves a workspace goes through here, including the
+     * API, which does not pass through the EnsureWorkspace middleware.
+     */
+    public function usableCurrentWorkspace(): ?Workspace
+    {
+        $workspace = $this->currentWorkspace;
+
+        if ($workspace === null || ! $this->belongsToWorkspace($workspace)) {
+            return null;
+        }
+
+        return $workspace;
+    }
+
+    public function belongsToWorkspace(Workspace $workspace): bool
+    {
+        return $this->workspaces()->whereKey($workspace->getKey())->exists();
+    }
+
+    public function hasUsableCurrentWorkspace(): bool
+    {
+        return $this->usableCurrentWorkspace() !== null;
     }
 
     /** @return BelongsToMany<Workspace, $this> */

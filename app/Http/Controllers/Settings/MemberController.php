@@ -67,6 +67,15 @@ class MemberController extends Controller
 
         $workspace->members()->detach($user->id);
 
+        // Leaving the pointer behind is what let a removed member keep acting in
+        // the workspace. Move them to another workspace they are still in, or
+        // to nothing, which lands them on the create screen.
+        if ($user->current_workspace_id === $workspace->id) {
+            $user->forceFill([
+                'current_workspace_id' => $user->workspaces()->value('workspaces.id'),
+            ])->save();
+        }
+
         return back()->with('success', 'Member removed.');
     }
 }
