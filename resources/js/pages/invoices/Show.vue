@@ -37,9 +37,56 @@ interface Invoice {
     lines: InvoiceLine[]
     created_by: { name: string }
     reminders: { id: number; days_overdue: number; sent_to: string; sent_at: string }[]
+    payments: Payment[]
 }
 
-const props = defineProps<{ invoice: Invoice }>()
+interface Payment {
+    id: number
+    amount: number
+    paid_on: string
+    method: string | null
+    note: string | null
+}
+
+const props = defineProps<{
+    invoice: Invoice
+    amountPaid: number
+    balance: number
+    paymentMethods: string[]
+}>()
+
+const isPartiallyPaid = computed(() => props.amountPaid > 0 && props.balance > 0)
+
+const paymentForm = useForm({
+    amount: '',
+    paid_on: new Date().toISOString().slice(0, 10),
+    method: 'bank',
+    note: '',
+})
+
+const canRecordPayment = computed(() =>
+    props.invoice.status !== 'draft' &&
+    props.invoice.status !== 'void' &&
+    props.balance > 0
+)
+
+function recordPayment() {
+    paymentForm
+        .transform((data) => ({
+            ...data,
+            amount: Math.round(parseFloat(data.amount || '0') * 100),
+            note: data.note || null,
+        }))
+        .post(route('invoices.payments.store', props.invoice.id), {
+            preserveScroll: true,
+            onSuccess: () => paymentForm.reset(),
+        })
+}
+
+function removePayment(id: number) {
+    if (!confirm('Remove this payment? The invoice status will follow the new balance.')) return
+    useForm({}).delete(route('invoices.payments.destroy', [props.invoice.id, id]), { preserveScroll: true })
+}
 
 const isSettled = computed(() => props.invoice.status === 'paid' || props.invoice.status === 'void')
 const isDraft = computed(() => props.invoice.status === 'draft')
@@ -290,10 +337,70 @@ function destroy() {
                             <span>Total</span>
                             <span>{{ formatMoney(invoice.total) }}</span>
                         </div>
+                        <template v-if="amountPaid > 0">
+                            <div class="flex justify-between">
+                                <span class="text-muted-foreground">Paid</span>
+                                <span>-{{ formatMoney(amountPaid) }}</span>
+                            </div>
+                            <div class="flex justify-between font-semibold" :class="balance > 0 ? 'text-destructive' : ''">
+                                <span>Balance</span>
+                                <span>{{ formatMoney(balance) }}</span>
+                            </div>
+                        </template>
                         <div v-if="invoice.paid_at" class="text-muted-foreground text-xs text-right pt-1">
                             Paid {{ formatDate(invoice.paid_at) }}
                         </div>
                     </div>
+                </div>
+
+                <!-- Payments -->
+                <div v-if="invoice.payments.length || canRecordPayment" class="border-t pt-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <p class="text-sm font-medium">Payments</p>
+                        <p v-if="isPartiallyPaid" class="text-muted-foreground text-xs">
+                            {{ formatMoney(balance) }} still outstanding
+                        </p>
+                    </div>
+
+                    <div v-for="p in invoice.payments" :key="p.id" class="flex items-center justify-between text-sm">
+                        <div>
+                            <span class="font-medium tabular-nums">{{ formatMoney(p.amount) }}</span>
+                            <span class="text-muted-foreground"> · {{ formatDate(p.paid_on) }}</span>
+                            <span v-if="p.method" class="text-muted-foreground capitalize"> · {{ p.method }}</span>
+                            <span v-if="p.note" class="text-muted-foreground"> · {{ p.note }}</span>
+                        </div>
+                        <Button variant="ghost" size="icon" class="text-destructive hover:text-destructive size-8" @click="removePayment(p.id)">
+                            <Trash2 class="size-3.5" />
+                        </Button>
+                    </div>
+
+                    <form v-if="canRecordPayment" class="flex flex-wrap items-end gap-2" @submit.prevent="recordPayment">
+                        <div class="w-32 space-y-1">
+                            <Label class="text-xs">Amount</Label>
+                            <Input v-model="paymentForm.amount" type="number" min="0.01" step="0.01" :placeholder="(balance / 100).toFixed(2)" />
+                        </div>
+                        <div class="w-40 space-y-1">
+                            <Label class="text-xs">Received on</Label>
+                            <Input v-model="paymentForm.paid_on" type="date" />
+                        </div>
+                        <div class="w-32 space-y-1">
+                            <Label class="text-xs">Method</Label>
+                            <select
+                                v-model="paymentForm.method"
+                                class="border-input bg-background h-9 w-full rounded-md border px-2 text-sm capitalize"
+                            >
+                                <option v-for="m in paymentMethods" :key="m" :value="m">{{ m }}</option>
+                            </select>
+                        </div>
+                        <div class="min-w-40 flex-1 space-y-1">
+                            <Label class="text-xs">Note</Label>
+                            <Input v-model="paymentForm.note" placeholder="Reference…" />
+                        </div>
+                        <Button type="submit" variant="outline" size="sm" :disabled="paymentForm.processing">
+                            Record payment
+                        </Button>
+                    </form>
+                    <p v-if="paymentForm.errors.amount" class="text-destructive text-xs">{{ paymentForm.errors.amount }}</p>
                 </div>
 
                 <div v-if="invoice.notes && !isDraft" class="text-sm text-muted-foreground border-t pt-4">

@@ -120,6 +120,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/invoices/{invoice}/copy', [InvoiceController::class, 'copy'])->name('invoices.copy');
         Route::post('/invoices/{invoice}/void', [InvoiceController::class, 'markVoid'])->name('invoices.void');
         Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+        Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'storePayment'])->name('invoices.payments.store');
+        Route::delete('/invoices/{invoice}/payments/{payment}', [InvoiceController::class, 'destroyPayment'])->name('invoices.payments.destroy');
         Route::post('/invoices/{invoice}/lines', [InvoiceController::class, 'storeLine'])->name('invoices.lines.store');
         Route::delete('/invoices/{invoice}/lines/{line}', [InvoiceController::class, 'destroyLine'])->name('invoices.lines.destroy');
         Route::delete('/invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
