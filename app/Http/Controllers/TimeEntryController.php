@@ -30,13 +30,14 @@ class TimeEntryController extends Controller
         $isOwner = $workspace->owner_id === $user->id;
         $viewingUserId = $this->resolveViewedUserId($request, $isOwner);
 
-        $entries = TimeEntry::query()
-            ->when($viewingUserId !== null, fn ($q) => $q->where('user_id', $viewingUserId))
-            ->whereHas('project', fn ($q) => $q->where('workspace_id', $workspace->id))
+        $entries = $this->filteredEntries($request, $workspace->id, $viewingUserId)
             ->with('project:id,name,client_id', 'project.client:id,name', 'user:id,name')
-            ->orderByDesc('started_at')
             ->paginate(50)
             ->withQueryString();
+
+        // Totals cover the whole filtered set, not just the page being shown:
+        // "how much is this" is the question the filters exist to answer.
+        $totals = $this->filteredTotals($request, $workspace->id, $viewingUserId);
 
         $projects = $workspace->projects()
             ->where('status', 'active')
@@ -57,10 +58,78 @@ class TimeEntryController extends Controller
             'members' => $isOwner
                 ? $workspace->members()->orderBy('name')->get(['users.id', 'users.name'])
                 : [],
+            'filterProjects' => $workspace->projects()
+                ->with('client:id,name')
+                ->orderBy('name')
+                ->get(['id', 'name', 'client_id']),
+            'totals' => $totals,
             'filters' => [
                 'user_id' => $viewingUserId === null ? 'all' : (string) $viewingUserId,
+                'project_id' => $this->projectFilter($request, $workspace->id) ?? '',
+                'from' => $this->dateFilter($request, 'from'),
+                'to' => $this->dateFilter($request, 'to'),
             ],
         ]);
+    }
+
+    /** @return Builder<TimeEntry> */
+    private function filteredEntries(Request $request, int $workspaceId, ?int $viewingUserId): Builder
+    {
+        $projectId = $this->projectFilter($request, $workspaceId);
+        $from = $this->dateFilter($request, 'from');
+        $to = $this->dateFilter($request, 'to');
+
+        return TimeEntry::query()
+            ->when($viewingUserId !== null, fn ($q) => $q->where('user_id', $viewingUserId))
+            ->whereHas('project', fn ($q) => $q->where('workspace_id', $workspaceId))
+            ->when($projectId !== null, fn ($q) => $q->where('project_id', $projectId))
+            ->when($from !== '', fn ($q) => $q->whereDate('started_at', '>=', $from))
+            ->when($to !== '', fn ($q) => $q->whereDate('started_at', '<=', $to))
+            ->orderByDesc('started_at');
+    }
+
+    /** @return array{minutes: int, amount: int} */
+    private function filteredTotals(Request $request, int $workspaceId, ?int $viewingUserId): array
+    {
+        $minutes = 0;
+        $amount = 0;
+
+        $entries = $this->filteredEntries($request, $workspaceId, $viewingUserId)
+            ->with('project:id,hourly_rate')
+            ->lazy();
+
+        foreach ($entries as $entry) {
+            $entryMinutes = $entry->duration_minutes ?? 0;
+            $project = $entry->project;
+            $projectRate = $project !== null ? $project->hourly_rate : null;
+            $rate = $entry->hourly_rate ?? $projectRate ?? 0;
+
+            $minutes += $entryMinutes;
+            $amount += (int) round(($entryMinutes / 60) * $rate);
+        }
+
+        return ['minutes' => $minutes, 'amount' => $amount];
+    }
+
+    /** Only a project inside the workspace counts, so the filter cannot leak. */
+    private function projectFilter(Request $request, int $workspaceId): ?int
+    {
+        $projectId = $request->integer('project_id');
+
+        if ($projectId <= 0) {
+            return null;
+        }
+
+        return Project::where('workspace_id', $workspaceId)->whereKey($projectId)->exists()
+            ? $projectId
+            : null;
+    }
+
+    private function dateFilter(Request $request, string $key): string
+    {
+        $value = trim($request->string($key)->toString());
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) === 1 ? $value : '';
     }
 
     /**
@@ -93,16 +162,16 @@ class TimeEntryController extends Controller
             : $user->id;
     }
 
-    public function export(CsvExporter $csv): StreamedResponse
+    public function export(Request $request, CsvExporter $csv): StreamedResponse
     {
         $user = $this->currentUser();
         $workspace = $user->requireCurrentWorkspace();
 
-        $entries = TimeEntry::query()
-            ->where('user_id', $user->id)
-            ->whereHas('project', fn ($q) => $q->where('workspace_id', $workspace->id))
-            ->with('project:id,name,client_id,hourly_rate', 'project.client:id,name', 'invoices:id,number')
-            ->orderByDesc('started_at');
+        $isOwner = $workspace->owner_id === $user->id;
+
+        // Same builder as the list, so the file matches what is on screen.
+        $entries = $this->filteredEntries($request, $workspace->id, $this->resolveViewedUserId($request, $isOwner))
+            ->with('project:id,name,client_id,hourly_rate', 'project.client:id,name', 'invoices:id,number');
 
         return $csv->stream(
             $csv->filename('time-entries'),
