@@ -25,10 +25,15 @@ class LoginController extends Controller
 
     public function store(LoginRequest $request): RedirectResponse
     {
+        $request->ensureIsNotRateLimited();
+
         if (! Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
+            $request->hitRateLimiter();
+
             return back()->withErrors(['email' => 'These credentials do not match our records.']);
         }
 
+        $request->clearRateLimiter();
         $request->session()->regenerate();
 
         $user = $this->currentUser();
