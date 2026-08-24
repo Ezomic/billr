@@ -33,10 +33,17 @@ class Invoice extends Model
         return $this->belongsTo(Workspace::class);
     }
 
-    /** @return BelongsTo<Client, $this> */
+    /**
+     * withTrashed on purpose. Clients soft-delete, and an invoice that loses its
+     * client renders as a blank party on the document and a 500 on the PDF,
+     * which is not an acceptable fate for a paid invoice somebody has to keep
+     * for their accounts.
+     *
+     * @return BelongsTo<Client, $this>
+     */
     public function client(): BelongsTo
     {
-        return $this->belongsTo(Client::class);
+        return $this->belongsTo(Client::class)->withTrashed();
     }
 
     /** @return BelongsTo<User, $this> */
