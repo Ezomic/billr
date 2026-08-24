@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Concerns\InteractsWithCurrentUser;
+use App\Models\Invoice;
+use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -16,25 +18,24 @@ class DashboardController extends Controller
     {
         $workspace = $this->currentUser()->requireCurrentWorkspace();
 
-        $base = $workspace->invoices();
+        $invoices = fn (): Builder => Invoice::query()->where('workspace_id', $workspace->id);
 
-        $totalInvoices = (clone $base)->count();
+        $outstanding = $this->totalsByCurrency(
+            $invoices()->whereNotIn('status', ['paid', 'void'])
+        );
 
-        $totalOutstanding = (clone $base)
-            ->whereNotIn('status', ['paid', 'void'])
-            ->sum('total');
+        $paidThisMonth = $this->totalsByCurrency(
+            $invoices()
+                ->where('status', 'paid')
+                ->whereMonth('paid_at', now()->month)
+                ->whereYear('paid_at', now()->year)
+        );
 
-        $paidThisMonth = (clone $base)
-            ->where('status', 'paid')
-            ->whereMonth('paid_at', now()->month)
-            ->whereYear('paid_at', now()->year)
-            ->sum('total');
-
-        $overdueCount = (clone $base)
-            ->where(function ($q) {
+        $overdueCount = $invoices()
+            ->where(function (Builder $q): void {
                 $q->where('status', 'overdue')
-                    ->orWhere(function ($q2) {
-                        $q2->whereIn('status', ['sent'])
+                    ->orWhere(function (Builder $q2): void {
+                        $q2->where('status', 'sent')
                             ->whereNotNull('due_at')
                             ->where('due_at', '<', today());
                     });
@@ -43,11 +44,41 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'stats' => [
-                'totalInvoices' => $totalInvoices,
-                'totalOutstanding' => (int) $totalOutstanding,
-                'paidThisMonth' => (int) $paidThisMonth,
+                'totalInvoices' => $invoices()->count(),
                 'overdueCount' => $overdueCount,
             ],
+            // Money is reported per currency. Clients override the workspace
+            // currency, so one workspace holds invoices in several, and adding
+            // them produces a number that looks plausible and means nothing.
+            'outstanding' => $outstanding,
+            'paidThisMonth' => $paidThisMonth,
+            'workspaceCurrency' => $workspace->currency,
         ]);
+    }
+
+    /**
+     * @param  Builder<Invoice>  $query
+     * @return list<array{currency: string, total: int}>
+     */
+    private function totalsByCurrency(Builder $query): array
+    {
+        $rows = [];
+
+        $aggregated = $query
+            ->selectRaw('currency, SUM(total) as aggregate_total')
+            ->groupBy('currency')
+            ->orderBy('currency')
+            ->get();
+
+        foreach ($aggregated as $row) {
+            $total = $row->getAttribute('aggregate_total');
+
+            $rows[] = [
+                'currency' => (string) $row->currency,
+                'total' => is_numeric($total) ? (int) $total : 0,
+            ];
+        }
+
+        return $rows;
     }
 }
