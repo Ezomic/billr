@@ -42,13 +42,16 @@ if (app()->isLocal()) {
 // Guest routes
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisterController::class, 'show'])->name('register');
-    Route::post('/register', [RegisterController::class, 'store']);
-
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'store']);
-
     Route::get('/invitations/{token}', [InvitationController::class, 'show'])->name('invitations.show');
-    Route::post('/invitations/{token}', [InvitationController::class, 'store'])->name('invitations.accept');
+
+    // Everything that accepts a credential or guesses a token. Login has its own
+    // finer-grained limiter keyed on email plus IP; this is the outer bound.
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('/register', [RegisterController::class, 'store']);
+        Route::post('/login', [LoginController::class, 'store']);
+        Route::post('/invitations/{token}', [InvitationController::class, 'store'])->name('invitations.accept');
+    });
 });
 
 // Client timesheet approval portal — token-based, no login required, so the
