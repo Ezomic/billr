@@ -69,6 +69,15 @@ class ClientController extends Controller
     {
         $this->authorizeClient($client);
 
+        // Money still owed is almost always a mis-click rather than an intent to
+        // remove the client. Settled history is fine to hide: the invoices keep
+        // resolving their client through withTrashed.
+        abort_if(
+            $client->invoices()->whereNotIn('status', ['paid', 'void'])->exists(),
+            422,
+            'This client has unpaid invoices. Settle or void them before deleting.',
+        );
+
         $client->delete();
 
         return back()->with('success', 'Client deleted.');
