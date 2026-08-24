@@ -30,7 +30,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'type' => $user->type,
                 ] : null,
-                'workspace' => $user?->isFreelancer() ? $user->currentWorkspace : null,
+                'workspace' => $user?->isFreelancer() ? $user->usableCurrentWorkspace() : null,
                 'workspaces' => $user?->isFreelancer()
                     ? $user->workspaces()->orderBy('name')->get(['workspaces.id', 'workspaces.name', 'workspaces.slug'])
                     : [],

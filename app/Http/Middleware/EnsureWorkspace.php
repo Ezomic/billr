@@ -16,7 +16,8 @@ class EnsureWorkspace
      * The access-workspace gate only checks isFreelancer(), and
      * current_workspace_id is nullable, so without this the route runs and
      * fails on a workspace that is not there. Invited users sit in this state
-     * between account creation and accepting the invitation.
+     * between account creation and accepting the invitation, and so does anyone
+     * who has just been removed from the workspace they were acting in.
      *
      * This must not cover workspaces.create/store or workspaces.switch, which
      * are the only ways out of it.
@@ -27,7 +28,9 @@ class EnsureWorkspace
     {
         $user = $request->user();
 
-        if ($user !== null && $user->isFreelancer() && $user->current_workspace_id === null) {
+        // Not just "is the column set": a removed member still has it set, and
+        // must be sent back out rather than allowed through.
+        if ($user !== null && $user->isFreelancer() && ! $user->hasUsableCurrentWorkspace()) {
             return redirect()->route('workspaces.create');
         }
 
