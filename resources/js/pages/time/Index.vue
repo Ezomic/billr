@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, reactive } from 'vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
 import type { SharedProps } from '@/types'
 import AppLayout from '@/layouts/AppLayout.vue'
@@ -35,14 +35,48 @@ const props = defineProps<{
     running: TimeEntry | null
     isOwner: boolean
     members: { id: number; name: string }[]
-    filters: { user_id: string }
+    filterProjects: { id: number; name: string; client: { name: string } | null }[]
+    totals: { minutes: number; amount: number }
+    filters: { user_id: string; project_id: string; from: string; to: string }
 }>()
 
-const viewedUser = ref(props.filters.user_id)
+const filters = reactive({ ...props.filters })
 
-watch(viewedUser, (value) => {
-    router.get(route('time.index'), { user_id: value }, { preserveState: true, replace: true })
+function applyFilters() {
+    router.get(route('time.index'), {
+        user_id: filters.user_id,
+        project_id: filters.project_id || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+    }, { preserveState: true, replace: true })
+}
+
+watch(() => [filters.user_id, filters.project_id, filters.from, filters.to], applyFilters)
+
+const hasFilters = computed(() => !!(filters.project_id || filters.from || filters.to))
+
+function clearFilters() {
+    filters.project_id = ''
+    filters.from = ''
+    filters.to = ''
+}
+
+// The export mirrors what is on screen, so it carries the same filters.
+const exportUrl = computed(() => {
+    const params = new URLSearchParams()
+    if (filters.user_id) params.set('user_id', filters.user_id)
+    if (filters.project_id) params.set('project_id', filters.project_id)
+    if (filters.from) params.set('from', filters.from)
+    if (filters.to) params.set('to', filters.to)
+    const qs = params.toString()
+    return route('time.export') + (qs ? `?${qs}` : '')
 })
+
+function formatTotalDuration(minutes: number) {
+    const h = Math.floor(minutes / 60)
+    const m = minutes % 60
+    return `${h}h ${m}m`
+}
 
 // Only meaningful for an owner looking at somebody else's entries: editing and
 // deleting stay with whoever logged the time.
@@ -156,14 +190,14 @@ function formatDate(iso: string) {
         <div class="p-6 md:p-8 space-y-6">
             <PageHeader title="Time tracking" description="Log and manage your time entries.">
                 <div class="flex items-center gap-2">
-                    <Select v-if="isOwner" v-model="viewedUser">
+                    <Select v-if="isOwner" v-model="filters.user_id">
                         <SelectTrigger class="w-44"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Everyone</SelectItem>
                             <SelectItem v-for="m in members" :key="m.id" :value="String(m.id)">{{ m.name }}</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" as="a" :href="route('time.export')">
+                    <Button variant="outline" as="a" :href="exportUrl">
                         <Download class="size-4" /> Export CSV
                     </Button>
                     <Button variant="outline" @click="openManual">
@@ -215,6 +249,30 @@ function formatDate(iso: string) {
             </div>
 
             <!-- Entries table -->
+            <div class="flex flex-wrap items-center gap-2">
+                <Select v-model="filters.project_id">
+                    <SelectTrigger class="w-56"><SelectValue placeholder="Any project" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem v-for="p in filterProjects" :key="p.id" :value="String(p.id)">
+                            {{ p.client?.name ? `${p.client.name} / ${p.name}` : p.name }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <Input v-model="filters.from" type="date" class="w-40" aria-label="From" />
+                <Input v-model="filters.to" type="date" class="w-40" aria-label="To" />
+                <Button v-if="hasFilters" variant="ghost" size="sm" @click="clearFilters">
+                    Clear
+                </Button>
+
+                <div class="ml-auto flex items-center gap-4 text-sm">
+                    <span class="text-muted-foreground">Total</span>
+                    <span class="font-mono font-semibold tabular-nums">{{ formatTotalDuration(totals.minutes) }}</span>
+                    <span class="font-semibold tabular-nums">
+                        {{ new Intl.NumberFormat('en-GB', { style: 'currency', currency: page.props.auth.workspace?.currency ?? 'EUR' }).format(totals.amount / 100) }}
+                    </span>
+                </div>
+            </div>
+
             <Table>
                 <TableHeader>
                     <TableRow>
