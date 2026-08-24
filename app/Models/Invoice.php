@@ -70,6 +70,56 @@ class Invoice extends Model
         return $this->belongsTo(RecurringInvoice::class);
     }
 
+    /** @return HasMany<InvoicePayment, $this> */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(InvoicePayment::class)->orderBy('paid_on');
+    }
+
+    public function amountPaid(): int
+    {
+        return (int) $this->payments()->sum('amount');
+    }
+
+    public function balance(): int
+    {
+        return max(0, $this->total - $this->amountPaid());
+    }
+
+    /**
+     * Status follows the balance rather than being set by hand, so an invoice
+     * cannot read as paid while money is still outstanding, or the reverse
+     * after a payment is corrected or removed.
+     *
+     * void is left alone: it is terminal and says nothing about money owed.
+     */
+    public function syncStatusWithBalance(): void
+    {
+        if ($this->status === 'void' || $this->status === 'draft') {
+            return;
+        }
+
+        $settled = $this->balance() === 0 && $this->total > 0;
+
+        if ($settled && $this->status !== 'paid') {
+            $this->update([
+                'status' => 'paid',
+                'paid_at' => $this->payments()->max('paid_on') ?? now(),
+            ]);
+
+            return;
+        }
+
+        if (! $settled && $this->status === 'paid') {
+            $overdue = $this->due_at !== null && $this->due_at->isBefore(today());
+
+            $this->update([
+                'status' => $overdue ? 'overdue' : 'sent',
+                'paid_at' => null,
+            ]);
+        }
+    }
+
     /** @return HasMany<InvoiceReminder, $this> */
     public function reminders(): HasMany
     {

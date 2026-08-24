@@ -20,8 +20,12 @@ class DashboardController extends Controller
 
         $invoices = fn (): Builder => Invoice::query()->where('workspace_id', $workspace->id);
 
+        // Net of payments received: with partial payments an invoice can be
+        // half settled, and reporting its full total as outstanding overstates
+        // what is actually owed.
         $outstanding = $this->totalsByCurrency(
-            $invoices()->whereNotIn('status', ['paid', 'void'])
+            $invoices()->whereNotIn('status', ['paid', 'void']),
+            'total - COALESCE((SELECT SUM(amount) FROM invoice_payments WHERE invoice_payments.invoice_id = invoices.id), 0)',
         );
 
         $paidThisMonth = $this->totalsByCurrency(
@@ -58,14 +62,16 @@ class DashboardController extends Controller
 
     /**
      * @param  Builder<Invoice>  $query
+     * @param  literal-string  $expression  SQL summed per row. Typed literal so
+     *                                      request input can never reach it.
      * @return list<array{currency: string, total: int}>
      */
-    private function totalsByCurrency(Builder $query): array
+    private function totalsByCurrency(Builder $query, string $expression = 'total'): array
     {
         $rows = [];
 
         $aggregated = $query
-            ->selectRaw('currency, SUM(total) as aggregate_total')
+            ->selectRaw('currency, SUM('.$expression.') as aggregate_total')
             ->groupBy('currency')
             ->orderBy('currency')
             ->get();

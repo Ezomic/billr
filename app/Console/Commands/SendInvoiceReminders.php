@@ -36,7 +36,7 @@ class SendInvoiceReminders extends Command
             ->whereNotNull('due_at')
             ->where('due_at', '<', today())
             ->whereHas('workspace', fn ($q) => $q->where('send_payment_reminders', true))
-            ->with('workspace', 'client', 'lines', 'reminders')
+            ->with('workspace', 'client', 'lines', 'reminders', 'payments')
             ->lazy();
 
         foreach ($invoices as $invoice) {

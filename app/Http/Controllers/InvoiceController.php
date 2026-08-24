@@ -11,6 +11,7 @@ use App\Mail\InvoiceSentMail;
 use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceLine;
+use App\Models\InvoicePayment;
 use App\Models\TimeEntry;
 use App\Services\CsvExporter;
 use App\Services\InvoicePdfRenderer;
@@ -24,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -105,10 +107,13 @@ class InvoiceController extends Controller
     {
         $this->authorizeInvoice($invoice);
 
-        $invoice->load('client', 'lines', 'createdBy:id,name', 'timeEntries.project:id,name', 'reminders');
+        $invoice->load('client', 'lines', 'createdBy:id,name', 'timeEntries.project:id,name', 'reminders', 'payments');
 
         return Inertia::render('invoices/Show', [
             'invoice' => $invoice,
+            'amountPaid' => $invoice->amountPaid(),
+            'balance' => $invoice->balance(),
+            'paymentMethods' => InvoicePayment::METHODS,
         ]);
     }
 
@@ -130,14 +135,65 @@ class InvoiceController extends Controller
         return back()->with('success', 'Invoice marked as sent.');
     }
 
+    /** Marking paid records a payment for the balance, so the two agree. */
     public function markPaid(Invoice $invoice): RedirectResponse
     {
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'void', 422, 'Cannot mark a voided invoice as paid.');
 
-        $invoice->update(['status' => 'paid', 'paid_at' => now()]);
+        $balance = $invoice->balance();
+
+        if ($balance > 0) {
+            $invoice->payments()->create([
+                'recorded_by' => $this->currentUser()->id,
+                'amount' => $balance,
+                'paid_on' => today(),
+                'method' => 'other',
+                'note' => 'Marked paid',
+            ]);
+        }
+
+        $invoice->refresh()->syncStatusWithBalance();
 
         return back()->with('success', 'Invoice marked as paid.');
+    }
+
+    public function storePayment(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_if($invoice->status === 'void', 422, 'Cannot record a payment on a voided invoice.');
+        abort_if($invoice->status === 'draft', 422, 'Send the invoice before recording a payment.');
+
+        $request->validate([
+            'amount' => ['required', 'integer', 'min:1', 'max:'.$invoice->balance()],
+            'paid_on' => ['required', 'date'],
+            'method' => ['required', Rule::in(InvoicePayment::METHODS)],
+            'note' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $invoice->payments()->create([
+            'recorded_by' => $this->currentUser()->id,
+            'amount' => $request->integer('amount'),
+            'paid_on' => $request->date('paid_on'),
+            'method' => $request->string('method')->toString(),
+            'note' => $request->input('note'),
+        ]);
+
+        $invoice->refresh()->syncStatusWithBalance();
+
+        return back()->with('success', 'Payment recorded.');
+    }
+
+    public function destroyPayment(Invoice $invoice, InvoicePayment $payment): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+        abort_unless($payment->invoice_id === $invoice->id, 404);
+
+        $payment->delete();
+
+        $invoice->refresh()->syncStatusWithBalance();
+
+        return back()->with('success', 'Payment removed.');
     }
 
     public function copy(Invoice $invoice, CopyInvoice $action): RedirectResponse
@@ -155,6 +211,13 @@ class InvoiceController extends Controller
         $this->authorizeInvoice($invoice);
         abort_if($invoice->status === 'paid', 422, 'Cannot void a paid invoice.');
         abort_if($invoice->status === 'void', 422, 'Invoice is already void.');
+        // Voiding would orphan the money already received. Making the user
+        // remove the payments first keeps that deletion deliberate.
+        abort_if(
+            $invoice->payments()->exists(),
+            422,
+            'This invoice has payments recorded against it. Remove them before voiding.',
+        );
 
         DB::transaction(function () use ($invoice): void {
             // Releasing the entries is the point of voiding rather than deleting:

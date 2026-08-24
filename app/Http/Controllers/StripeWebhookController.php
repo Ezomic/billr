@@ -69,11 +69,21 @@ class StripeWebhookController extends Controller
             return $this->ok();
         }
 
-        $invoice->update([
-            'status' => 'paid',
-            'paid_at' => now(),
-            'stripe_session_id' => $session->id,
-        ]);
+        // Recorded as a payment rather than flipping the status directly, so the
+        // money has a row behind it and the balance stays the source of truth.
+        // stripe_session_id is unique, so a replayed event cannot pay twice.
+        $invoice->payments()->firstOrCreate(
+            ['stripe_session_id' => $session->id],
+            [
+                'amount' => (int) $session->amount_total,
+                'paid_on' => today(),
+                'method' => 'stripe',
+                'note' => 'Stripe checkout',
+            ],
+        );
+
+        $invoice->update(['stripe_session_id' => $session->id]);
+        $invoice->refresh()->syncStatusWithBalance();
 
         return $this->ok();
     }

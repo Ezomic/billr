@@ -87,6 +87,40 @@ it('settles the invoice when the checkout session is paid', function () {
         ->and($this->invoice->fresh()->stripe_session_id)->toBe('cs_test_123');
 });
 
+it('records the settlement as a payment rather than just flipping the status', function () {
+    $payload = stripeEvent('checkout.session.completed', [
+        'payment_status' => 'paid',
+        'amount_total' => 10000,
+        'currency' => 'usd',
+        'metadata' => ['invoice_id' => (string) $this->invoice->id],
+    ]);
+
+    postStripeWebhook($payload)->assertOk();
+
+    $invoice = $this->invoice->fresh();
+    $payment = $invoice->payments()->first();
+
+    expect($payment)->not->toBeNull()
+        ->and($payment->amount)->toBe(10000)
+        ->and($payment->method)->toBe('stripe')
+        ->and($payment->stripe_session_id)->toBe('cs_test_123')
+        ->and($invoice->balance())->toBe(0);
+});
+
+it('does not pay twice when Stripe replays the same session', function () {
+    $payload = stripeEvent('checkout.session.completed', [
+        'payment_status' => 'paid',
+        'amount_total' => 10000,
+        'currency' => 'usd',
+        'metadata' => ['invoice_id' => (string) $this->invoice->id],
+    ]);
+
+    postStripeWebhook($payload)->assertOk();
+    postStripeWebhook($payload)->assertOk();
+
+    expect($this->invoice->fresh()->payments()->count())->toBe(1);
+});
+
 it('leaves the invoice unpaid when a delayed payment method has not settled', function () {
     $payload = stripeEvent('checkout.session.completed', [
         'payment_status' => 'unpaid',
