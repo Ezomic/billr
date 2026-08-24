@@ -147,6 +147,8 @@ Route::middleware('auth')->group(function () {
 
             Route::get('/members', [MemberController::class, 'show'])->name('members');
             Route::post('/members/invite', [MemberController::class, 'invite'])->name('members.invite');
+            Route::post('/members/invitations/{invitation}/resend', [MemberController::class, 'resendInvitation'])->name('members.invitations.resend');
+            Route::delete('/members/invitations/{invitation}', [MemberController::class, 'cancelInvitation'])->name('members.invitations.cancel');
             Route::delete('/members/{user}', [MemberController::class, 'remove'])->name('members.remove');
         });
     });

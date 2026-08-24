@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Separator } from '@/components/ui/separator'
-import { Trash2 } from 'lucide-vue-next'
+import { Trash2, Send, X } from 'lucide-vue-next'
 
 interface Member { id: number; name: string; email: string; pivot: { role: string } }
 interface PendingInvite { id: number; email: string; role: string; created_at: string }
@@ -23,6 +23,15 @@ const inviteForm = useForm({ email: '', role: 'member' })
 
 function initials(name: string) {
     return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2)
+}
+
+function resendInvite(inv: PendingInvite) {
+    useForm({}).post(route('settings.members.invitations.resend', inv.id), { preserveScroll: true })
+}
+
+function cancelInvite(inv: PendingInvite) {
+    if (!confirm(`Cancel the invitation to ${inv.email}?`)) return
+    useForm({}).delete(route('settings.members.invitations.cancel', inv.id), { preserveScroll: true })
 }
 
 function removeMember(member: Member) {
@@ -73,9 +82,19 @@ function removeMember(member: Member) {
             <!-- Pending invitations -->
             <div v-if="invitations.length" class="space-y-3">
                 <p class="text-sm font-medium text-muted-foreground">Pending invitations</p>
-                <div v-for="inv in invitations" :key="inv.id" class="flex items-center justify-between">
+                <div v-for="inv in invitations" :key="inv.id" class="flex items-center justify-between gap-2">
                     <p class="text-sm">{{ inv.email }}</p>
-                    <Badge variant="outline">Pending</Badge>
+                    <div class="flex items-center gap-1">
+                        <Badge variant="outline">Pending</Badge>
+                        <template v-if="isOwner">
+                            <Button variant="ghost" size="sm" class="gap-1" @click="resendInvite(inv)">
+                                <Send class="size-3.5" /> Resend
+                            </Button>
+                            <Button variant="ghost" size="icon" class="text-destructive hover:text-destructive size-8" @click="cancelInvite(inv)">
+                                <X class="size-4" />
+                            </Button>
+                        </template>
+                    </div>
                 </div>
             </div>
 

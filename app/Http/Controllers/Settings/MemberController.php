@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Settings;
 
+use App\Actions\SendWorkspaceInvitation;
 use App\Concerns\InteractsWithCurrentUser;
 use App\Http\Controllers\Controller;
 use App\Models\Invitation;
@@ -11,7 +12,6 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -38,7 +38,7 @@ class MemberController extends Controller
         ]);
     }
 
-    public function invite(Request $request): RedirectResponse
+    public function invite(Request $request, SendWorkspaceInvitation $action): RedirectResponse
     {
         $workspace = $this->currentUser()->requireCurrentWorkspace();
         abort_unless($workspace->owner_id === Auth::id(), 403);
@@ -48,15 +48,40 @@ class MemberController extends Controller
             'role' => ['required', 'in:member'],
         ]);
 
-        Invitation::create([
-            'workspace_id' => $workspace->id,
-            'email' => $request->string('email')->toString(),
-            'role' => $request->string('role')->toString(),
-            'token' => Str::random(64),
-            'expires_at' => now()->addDays(7),
-        ]);
+        $email = $request->string('email')->toString();
 
-        return back()->with('success', 'Invitation sent.');
+        abort_if(
+            $workspace->members()->where('users.email', $email)->exists(),
+            422,
+            'That person is already a member of this workspace.',
+        );
+
+        $action->handle($workspace, $email, $request->string('role')->toString());
+
+        return back()->with('success', 'Invitation sent to '.$email.'.');
+    }
+
+    public function resendInvitation(Invitation $invitation, SendWorkspaceInvitation $action): RedirectResponse
+    {
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
+        abort_unless($workspace->owner_id === Auth::id(), 403);
+        abort_unless($invitation->workspace_id === $workspace->id, 403);
+        abort_unless($invitation->accepted_at === null, 422, 'That invitation has already been accepted.');
+
+        $action->handle($workspace, $invitation->email, $invitation->role ?? 'member');
+
+        return back()->with('success', 'Invitation resent to '.$invitation->email.'.');
+    }
+
+    public function cancelInvitation(Invitation $invitation): RedirectResponse
+    {
+        $workspace = $this->currentUser()->requireCurrentWorkspace();
+        abort_unless($workspace->owner_id === Auth::id(), 403);
+        abort_unless($invitation->workspace_id === $workspace->id, 403);
+
+        $invitation->delete();
+
+        return back()->with('success', 'Invitation cancelled.');
     }
 
     public function remove(User $user): RedirectResponse
