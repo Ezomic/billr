@@ -5,25 +5,37 @@ import type { SharedProps } from '@/types'
 
 interface Stats {
     totalInvoices: number
-    totalOutstanding: number
-    paidThisMonth: number
     overdueCount: number
+}
+
+interface CurrencyTotal {
+    currency: string
+    total: number
 }
 
 interface Props extends SharedProps {
     stats: Stats
+    outstanding: CurrencyTotal[]
+    paidThisMonth: CurrencyTotal[]
+    workspaceCurrency: string
 }
 
 const page = usePage<Props>()
 
-const { stats } = page.props
+const { stats, outstanding, paidThisMonth, workspaceCurrency } = page.props
 
-function formatCurrency(cents: number): string {
+function formatCurrency(cents: number, currency: string): string {
     return new Intl.NumberFormat(undefined, {
         style: 'currency',
-        currency: page.props.auth.workspace?.currency ?? 'USD',
+        currency,
         minimumFractionDigits: 2,
     }).format(cents / 100)
+}
+
+// An empty set means nothing to report, which reads better as a zero in the
+// workspace currency than as a blank tile.
+function rowsOrZero(rows: CurrencyTotal[]): CurrencyTotal[] {
+    return rows.length ? rows : [{ currency: workspaceCurrency, total: 0 }]
 }
 </script>
 
@@ -43,12 +55,28 @@ function formatCurrency(cents: number): string {
 
                 <div class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
                     <p class="text-muted-foreground text-sm font-medium">Outstanding</p>
-                    <p class="mt-2 text-3xl font-bold">{{ formatCurrency(stats.totalOutstanding) }}</p>
+                    <div class="mt-2 space-y-1">
+                        <p
+                            v-for="row in rowsOrZero(outstanding)"
+                            :key="row.currency"
+                            class="text-3xl font-bold tabular-nums"
+                        >
+                            {{ formatCurrency(row.total, row.currency) }}
+                        </p>
+                    </div>
                 </div>
 
                 <div class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
                     <p class="text-muted-foreground text-sm font-medium">Paid This Month</p>
-                    <p class="mt-2 text-3xl font-bold">{{ formatCurrency(stats.paidThisMonth) }}</p>
+                    <div class="mt-2 space-y-1">
+                        <p
+                            v-for="row in rowsOrZero(paidThisMonth)"
+                            :key="row.currency"
+                            class="text-3xl font-bold tabular-nums"
+                        >
+                            {{ formatCurrency(row.total, row.currency) }}
+                        </p>
+                    </div>
                 </div>
 
                 <div class="bg-card text-card-foreground rounded-xl border p-6 shadow-sm">
