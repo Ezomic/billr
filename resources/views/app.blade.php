@@ -19,5 +19,8 @@
     <body class="font-sans antialiased">
         @inertia
         <div id="toaster"></div>
+
+        {{-- Renders nothing unless snag is configured and someone is signed in. --}}
+        @snag
     </body>
 </html>
