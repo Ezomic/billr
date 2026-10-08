@@ -41,7 +41,7 @@ class CreateInvoiceFromTimeEntries
             $client,
             $timeEntryIds,
             $taxRate,
-            $fixedPriceProjectIds ?? collect(),
+            $fixedPriceProjectIds ?? new Collection,
         ));
     }
 
